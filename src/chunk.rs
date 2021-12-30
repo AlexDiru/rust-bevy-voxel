@@ -1,4 +1,3 @@
-use std::cmp::Ordering::Equal;
 use opensimplex_noise_rs::OpenSimplexNoise;
 
 #[derive(Clone, Copy)]

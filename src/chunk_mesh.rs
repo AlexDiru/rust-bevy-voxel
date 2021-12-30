@@ -1,6 +1,6 @@
-use crate::vert_gen::{bottom_plane_vertices, top_plane_vertices};
+use crate::vert_gen::{back_plane_vertices, bottom_plane_vertices, front_plane_vertices, left_plane_vertices, right_plane_vertices, top_plane_vertices};
 use crate::chunk::{Chunk};
-use crate::{back_plane_vertices, CHUNK_SIZE, CHUNK_SIZE_I32, front_plane_vertices, left_plane_vertices, right_plane_vertices};
+use crate::{CHUNK_SIZE};
 
 #[exec_time]
 pub fn generate_chunk_mesh(chunk: &Chunk) -> Vec<Vertexes> {
@@ -19,7 +19,7 @@ pub fn generate_chunk_mesh(chunk: &Chunk) -> Vec<Vertexes> {
         let z = n / (32 * 32);
 
         if chunk.get_voxel(x, y, z).solid {
-            /**
+            /*
             x = i % max_x
             y = ( i / max_x ) % max_y
             z = i / ( max_x * max_y ) */
