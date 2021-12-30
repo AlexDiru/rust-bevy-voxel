@@ -1,46 +1,51 @@
 use crate::vert_gen::{bottom_plane_vertices, top_plane_vertices};
 use crate::chunk::{Chunk};
-use crate::{back_plane_vertices, front_plane_vertices, left_plane_vertices, right_plane_vertices};
+use crate::{back_plane_vertices, CHUNK_SIZE, CHUNK_SIZE_I32, front_plane_vertices, left_plane_vertices, right_plane_vertices};
 
-pub fn generate_chunk_mesh(chunk: &Chunk) -> Vec<Vertexes>{
+#[exec_time]
+pub fn generate_chunk_mesh(chunk: &Chunk) -> Vec<Vertexes> {
     let mut meshes = Vec::new();
     let mut visited = Vec::new();
 
-    for n in 0..(32 * 32 * 32) {
-        /**
-        x = i % max_x
-        y = ( i / max_x ) % max_y
-        z = i / ( max_x * max_y ) */
+    for mut n in 0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+        if visited.contains(&n) {
+            // We would have already checked the neighbours
+            n = n + 1;
+            continue;
+        }
+
         let x = n % 32;
         let y = (n / 32) % 32;
         let z = n / (32 * 32);
 
-        if !visited.contains(&(x, y, z)) {
-            if chunk.get_voxel(&(x, y, z)).solid {
-                let mut res = generate_chunk_mesh_from_voxel(chunk, x, y, z);
-                meshes.push(res.vertexes);
-                visited.append(&mut res.visited);
-            } else {
-                visited.push((x, y, z));
-            }
-        }
+        if chunk.get_voxel(x, y, z).solid {
+            /**
+            x = i % max_x
+            y = ( i / max_x ) % max_y
+            z = i / ( max_x * max_y ) */
+            let mut res = generate_chunk_mesh_from_voxel(chunk, n,x, y, z);
+            meshes.push(res.vertexes);
+            visited.append(&mut res.visited);
+        } //else {
+          //  visited.push(n);
+        //}
     }
 
     meshes
 }
 
-type Vertexes = Vec<([f32; 3], [f32; 3], [f32; 2])>;
+pub type Vertexes = Vec<([f32; 3], [f32; 3], [f32; 2])>;
 
 struct ChunkMeshGenResult {
     pub vertexes: Vertexes,
-    pub visited: Vec<(usize, usize, usize)>
+    pub visited: Vec<usize>
 }
 
-fn generate_chunk_mesh_from_voxel(chunk: &Chunk, start_x: usize, start_y: usize, start_z: usize) -> ChunkMeshGenResult {
+fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: usize, start_y: usize, start_z: usize) -> ChunkMeshGenResult {
     let mut vertices = Vec::new();
 
     let mut visited = Vec::new();
-    visited.push((start_x, start_y, start_z));
+    visited.push(voxel_index);
 
     let mut queue = Vec::new();
     queue.push((start_x, start_y, start_z));
@@ -87,9 +92,10 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, start_x: usize, start_y: usize,
         }
 
         for (_, vx) in vxs.iter().enumerate() {
-            if chunk.get_voxel(vx).solid {
-                if !visited.contains(vx) {
-                    visited.push(vx.clone());
+            if chunk.get_voxel(vx.0, vx.1, vx.2).solid {
+                let vx_index = xyz_to_voxel_index(vx.0, vx.1, vx.2);
+                if !visited.contains(&vx_index) {
+                    visited.push(vx_index.clone());
                     queue.push(vx.clone());
                 }
             } else {
@@ -115,4 +121,8 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, start_x: usize, start_y: usize,
         visited,
         vertexes: vertices
     }
+}
+
+fn xyz_to_voxel_index(x: usize, y: usize, z: usize) -> usize {
+    x + (y * CHUNK_SIZE) + (z * CHUNK_SIZE * CHUNK_SIZE)
 }
