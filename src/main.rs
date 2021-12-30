@@ -9,6 +9,7 @@ mod chunks;
 extern crate exec_time;
 
 use std::borrow::BorrowMut;
+use std::cmp::min;
 use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
 use bevy::render::wireframe::{WireframePlugin};
@@ -29,6 +30,29 @@ fn generate_mesh(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Vec<Mesh> {
     meshes
 }
 
+fn uvs_to_atlas_uvs(uvs: &[f32;2], atlas_width: i32, atlas_index: i32) -> [f32; 2] {
+
+    let x_index = atlas_index % atlas_width;
+    let y_index = (atlas_index as f32 / atlas_width as f32) as i32;
+    let texture_width = 1.0 / atlas_width as f32;
+
+    let mut new_uv = [ 0.0, 0.0];
+
+    if uvs[0] == 0.0 {
+        new_uv[0] = x_index as f32 * texture_width;
+    } else {
+        new_uv[0] = (x_index + 1) as f32 * texture_width;
+    }
+
+    if uvs[1] == 0.0 {
+        new_uv[1] = y_index as f32 * texture_width;
+    } else {
+        new_uv[1] = (y_index + 1) as f32 * texture_width;
+    }
+
+    return new_uv;
+}
+
 fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
     let mut positions = Vec::new();
     let mut normals = Vec::new();
@@ -36,7 +60,19 @@ fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
     for (position, normal, uv) in vertices.iter() {
         positions.push(*position);
         normals.push(*normal);
-        uvs.push(*uv);
+
+       /* let mut min_0 = uv[0];
+        if uv[0] > 0.25 {
+            min_0 = 0.5;
+        }
+
+        let mut min_1 = uv[1];
+        if uv[1] > 0.25 {
+            min_1 = 0.5;
+        }
+
+        let mod_uv = [ min_0, min_1 ];*/
+        uvs.push(uvs_to_atlas_uvs(uv, 2, 1));
     }
 
     let mut mesh = Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
@@ -51,19 +87,23 @@ fn init(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let start_transform = Transform::from_translation(Vec3::new(32.0, 32.0, 32.0));
-
-    let texture_handle : Handle<Texture> = asset_server.load("wall.png");
-
     let chunk_materials = ChunkMaterials {
         wall_material: materials.add(StandardMaterial {
-            base_color_texture: Some(texture_handle.clone()),
+            base_color_texture: Some(asset_server.load("atlas.png").clone()),
             unlit: true,
             ..Default::default()
-        })
+        }),
+        grass_material: materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("grass.png").clone()),
+            unlit: true,
+            ..Default::default()
+        }),
     };
 
     commands.spawn().insert(chunk_materials);
+
+
+    let start_transform = Transform::from_translation(Vec3::new(32.0, 32.0, 32.0));
 
     commands
         .spawn()
@@ -131,7 +171,8 @@ fn main_spawner(
 }
 
 struct ChunkMaterials {
-    wall_material: Handle<StandardMaterial>
+    wall_material: Handle<StandardMaterial>,
+    grass_material: Handle<StandardMaterial>
 }
 
 struct SpawnedChunks {
@@ -148,9 +189,9 @@ impl SpawnedChunks {
     }
 
     pub fn request_next_chunk(&mut self) -> std::option::Option<IVec3> {
-        for x in 0..5 {
-            for y in 0..5 {
-                for z in 0..3 {
+        for x in 0..2 {
+            for y in 0..2 {
+                for z in 0..2 {
                     // TODO HAS and SET need to be in the same lock
                     if !self.has_loaded(&IVec3::new(x, y ,z)) {
                         self.set_loaded(IVec3::new(x, y ,z));
