@@ -1,5 +1,8 @@
 mod map;
 mod point;
+mod chunk;
+mod chunk_mesh;
+mod vert_gen;
 
 use std::f32::consts::PI;
 use bevy::prelude::*;
@@ -10,114 +13,57 @@ use bevy::render::texture::TextureViewDimension::Cube;
 use bevy::render::wireframe::{Wireframe, WireframePlugin};
 use bevy::wgpu::{WgpuFeature, WgpuFeatures, WgpuOptions};
 use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
+use crate::chunk::Chunk;
+use crate::chunk_mesh::generate_chunk_mesh;
 use crate::map::Map;
 use crate::point::Point;
+use crate::vert_gen::{back_plane_vertices, front_plane_vertices, left_plane_vertices, right_plane_vertices, top_plane_vertices};
 
-fn top_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> [([f32; 3], [f32; 3], [f32; 2]); 6] {
-    [
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-    ]
-}
+fn generate_mesh(points: &Vec<Point>) -> Vec<Mesh> {
+    // let mut vertices = Vec::new();
+    // for (_, point) in points.iter().enumerate() {
+    //     vertices.extend_from_slice(&top_plane_vertices(point.x as f32, 0.0, point.y as f32));
+    //
+    //     // if up point doesn't exist, render back wall
+    //     if !points.contains(&point.right()) {
+    //         vertices.extend_from_slice(&back_plane_vertices(point.x as f32, 0.0, point.y as f32));
+    //     }
+    //
+    //     if !points.contains(&point.left()) {
+    //         vertices.extend_from_slice(&front_plane_vertices(point.x as f32, 0.0, point.y as f32));
+    //     }
+    //
+    //     if !points.contains(&point.down()) {
+    //         vertices.extend_from_slice(&left_plane_vertices(point.x as f32, 0.0, point.y as f32));
+    //     }
+    //
+    //     if !points.contains(&point.up()) {
+    //         vertices.extend_from_slice(&right_plane_vertices(point.x as f32, 0.0, point.y as f32));
+    //     }
+    //
+    // }
 
-fn left_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> [([f32; 3], [f32; 3], [f32; 2]); 6] {
-    [
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-    ]
-}
+    let mut meshes = Vec::new();
+    let vertices_arr = generate_chunk_mesh(&Chunk::sphere());
 
-fn right_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> [([f32; 3], [f32; 3], [f32; 2]); 6] {
-    [
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-    ]
-}
-
-fn bottom_plane_vertices() -> [([f32; 3], [f32; 3], [f32; 2]); 6] {
-    [
-        ([1.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0]),
-    ]
-}
-
-fn back_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> [([f32; 3], [f32; 3], [f32; 2]); 6] {
-    [
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-    ]
-}
-
-fn front_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> [([f32; 3], [f32; 3], [f32; 2]); 6] {
-    [
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-    ]
-}
-
-fn generate_mesh(points: &Vec<Point>) -> Mesh {
-    let mut vertices = Vec::new();
-    for (_, point) in points.iter().enumerate() {
-        vertices.extend_from_slice(&top_plane_vertices(point.x as f32, 0.0, point.y as f32));
-
-        // if up point doesn't exist, render back wall
-        if !points.contains(&point.right()) {
-            vertices.extend_from_slice(&back_plane_vertices(point.x as f32, 0.0, point.y as f32));
+    for (_, vertices) in vertices_arr.iter().enumerate() {
+        let mut positions = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        for (position, normal, uv) in vertices.iter() {
+            positions.push(*position);
+            normals.push(*normal);
+            uvs.push(*uv);
         }
 
-        if !points.contains(&point.left()) {
-            vertices.extend_from_slice(&front_plane_vertices(point.x as f32, 0.0, point.y as f32));
-        }
-
-        if !points.contains(&point.down()) {
-            vertices.extend_from_slice(&left_plane_vertices(point.x as f32, 0.0, point.y as f32));
-        }
-
-        if !points.contains(&point.up()) {
-            vertices.extend_from_slice(&right_plane_vertices(point.x as f32, 0.0, point.y as f32));
-        }
-
+        let mut mesh = Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
+        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        meshes.push(mesh);
     }
 
-    let mut positions = Vec::new();
-    let mut normals = Vec::new();
-    let mut uvs = Vec::new();
-    for (position, normal, uv) in vertices.iter() {
-        positions.push(*position);
-        normals.push(*normal);
-        uvs.push(*uv);
-    }
-
-    let mut mesh = Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
-    mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-
-    mesh
+    meshes
 }
 
 fn init(
@@ -131,27 +77,25 @@ fn init(
     });
 
     let map = Map::dfs_maze();
-    let wall_mesh = meshes.add(generate_mesh(map.get_walls()));
-    let floor_mesh = meshes.add(generate_mesh(map.get_floors()));
 
-    let indices = bevy::render::mesh::Indices::U32(vec![0, 2, 1, 0, 3, 2]);
+    let vx_meshes = generate_mesh(map.get_walls());
+    for (_, vx_mesh) in vx_meshes.into_iter().enumerate() {
+        let wall_mesh = meshes.add(vx_mesh);
+        let indices = bevy::render::mesh::Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
-    let wall_material = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
-    let floor_material = materials.add(Color::rgb(0.1, 0.7, 0.3).into());
+        let wall_material = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
+        let floor_material = materials.add(Color::rgb(0.1, 0.7, 0.3).into());
 
-    commands.spawn().insert_bundle(PbrBundle {
-        mesh: wall_mesh.clone(),
-        material: wall_material.clone(),
-        transform: Transform::from_translation(Vec3::ZERO),
-        ..Default::default()
-    }).insert(Wireframe);
+        commands.spawn().insert_bundle(PbrBundle {
+            mesh: wall_mesh.clone(),
+            material: wall_material.clone(),
+            transform: Transform::from_translation(Vec3::ZERO),
+            ..Default::default()
+        }).insert(Wireframe);
+    }
 
-    commands.spawn().insert_bundle(PbrBundle {
-        mesh: floor_mesh.clone(),
-        material: floor_material.clone(),
-        transform: Transform::from_xyz(0.0, -1.0, 0.0),
-        ..Default::default()
-    });
+
+
 
     commands
         .spawn()
