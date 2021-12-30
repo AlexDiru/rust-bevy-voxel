@@ -54,25 +54,38 @@ fn uvs_to_atlas_uvs(uvs: &[f32;2], atlas_width: i32, atlas_index: i32) -> [f32; 
 }
 
 fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
+    // TODO group the vertices by quads (every 6 vertices = quad), determine which face they are,
+    // TODO pick a texture based on that (grass top dirt side)
     let mut positions = Vec::new();
     let mut normals = Vec::new();
     let mut uvs = Vec::new();
-    for (position, normal, uv) in vertices.iter() {
-        positions.push(*position);
-        normals.push(*normal);
 
-       /* let mut min_0 = uv[0];
-        if uv[0] > 0.25 {
-            min_0 = 0.5;
+    for i in (0..vertices.len()).step_by(6) {
+
+        // TODO get min position height
+
+        let (position_, _, _) = vertices.get(i).unwrap();
+
+        let mut texture_atlas_index = 0;
+        let height = position_[1];
+
+        if height >= 30.0 {
+            texture_atlas_index = 1;
+        } else if height >= 24.0 {
+            texture_atlas_index = 0;
+        } else if height >= 18.0 {
+            texture_atlas_index = 2;
+        } else {
+            texture_atlas_index = 3;
         }
 
-        let mut min_1 = uv[1];
-        if uv[1] > 0.25 {
-            min_1 = 0.5;
-        }
+        for v_index in 0..6 {
+            let (position, normal, uv) = vertices.get(i + v_index).unwrap();
 
-        let mod_uv = [ min_0, min_1 ];*/
-        uvs.push(uvs_to_atlas_uvs(uv, 2, 1));
+            positions.push(*position);
+            normals.push(*normal);
+            uvs.push(uvs_to_atlas_uvs(uv, 4, texture_atlas_index));
+        }
     }
 
     let mut mesh = Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
@@ -127,49 +140,6 @@ fn init(
     commands.spawn().insert(SpawnedChunks::new(get_chunk_containing_position(&start_transform.translation)));
 }
 
-fn main_spawner(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    chunk_mat_query: Query<&ChunkMaterials>,
-) {
-
-    let chunks_x = 3;
-    let chunks_y = 2;
-    let chunks_z = 3;
-
-    println!("Getting chunk materials");
-    let chunk_materials = chunk_mat_query.single().unwrap();
-    println!("Done Getting chunk materials");
-
-    for chunk_x in 0..chunks_x {
-        for chunk_y in 0..chunks_y {
-            for chunk_z in 0..chunks_z {
-                let mut pbr_bundles = Vec::new();
-
-                let vx_meshes = generate_mesh(chunk_x, chunk_z, chunk_y);
-
-                for (_, vx_mesh) in vx_meshes.into_iter().enumerate() {
-                    let chunk_transform = Transform::from_translation(Vec3::new(
-                        (chunk_x * CHUNK_SIZE_I32) as f32,
-                        (chunk_y * CHUNK_SIZE_I32) as f32,
-                        (chunk_z * CHUNK_SIZE_I32) as f32));
-
-                    pbr_bundles.push(PbrBundle {
-                        mesh: meshes.add(vx_mesh).clone(),
-                        material: chunk_materials.wall_material.clone(),
-                        transform: chunk_transform,
-                        ..Default::default()
-                    });
-                }
-
-                for (_, pbr_bundle) in pbr_bundles.into_iter().enumerate() {
-                    commands.spawn_bundle(pbr_bundle);
-                }
-            }
-        }
-    }
-}
-
 struct ChunkMaterials {
     wall_material: Handle<StandardMaterial>,
     grass_material: Handle<StandardMaterial>
@@ -189,9 +159,9 @@ impl SpawnedChunks {
     }
 
     pub fn request_next_chunk(&mut self) -> std::option::Option<IVec3> {
-        for x in 0..2 {
+        for x in 0..5 {
             for y in 0..2 {
-                for z in 0..2 {
+                for z in 0..5 {
                     // TODO HAS and SET need to be in the same lock
                     if !self.has_loaded(&IVec3::new(x, y ,z)) {
                         self.set_loaded(IVec3::new(x, y ,z));
