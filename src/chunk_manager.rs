@@ -1,5 +1,5 @@
-use bevy::prelude::Handle;
-use crate::{IVec3, StandardMaterial};
+use bevy::prelude::{Handle, Vec3};
+use crate::{CHUNK_SIZE, IVec3, StandardMaterial};
 
 pub struct ChunkManager {
     center: IVec3, // The chunk the player is in
@@ -45,4 +45,10 @@ impl ChunkManager {
         let mut vec = self.spawned_chunks.lock().unwrap();
         vec.push(xyz);
     }
+}
+
+pub fn get_chunk_containing_position(position: &Vec3) -> IVec3 {
+    IVec3::new((position.x / CHUNK_SIZE as f32) as i32,
+               (position.y / CHUNK_SIZE as f32) as i32,
+               (position.z / CHUNK_SIZE as f32) as i32)
 }
