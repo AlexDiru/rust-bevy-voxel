@@ -1,16 +1,5 @@
 use opensimplex_noise_rs::OpenSimplexNoise;
-
-#[derive(Clone, Copy)]
-pub struct Voxel {
-    pub solid: bool
-}
-
-impl Voxel {
-    pub fn new(solid: bool) -> Voxel {
-        Voxel { solid }
-    }
-}
-
+use crate::voxel::Voxel;
 
 pub const CHUNK_SIZE: usize = 32;
 pub const CHUNK_SIZE_I32: i32 = CHUNK_SIZE as i32;

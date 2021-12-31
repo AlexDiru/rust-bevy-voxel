@@ -1,9 +1,12 @@
 mod map;
 mod point;
 mod chunk;
-mod chunk_mesh;
+mod chunk_vertexes;
 mod vert_gen;
 mod chunks;
+mod chunk_manager;
+mod voxel;
+mod chunk_mesh;
 
 #[macro_use]
 extern crate exec_time;
@@ -17,105 +20,15 @@ use bevy::tasks::{AsyncComputeTaskPool, TaskPool, TaskPoolBuilder};
 use bevy::wgpu::{WgpuFeature, WgpuFeatures, WgpuOptions};
 use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
 use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_I32};
-use crate::chunk_mesh::{generate_chunk_mesh, Vertexes};
-
-fn generate_mesh(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Vec<Mesh> {
-    let mut meshes = Vec::new();
-    let vertices_arr = generate_chunk_mesh(&Chunk::noise(chunk_x, chunk_y, chunk_z));
-
-    for (_, vertices) in vertices_arr.iter().enumerate() {
-        meshes.push(create_chunk_mesh(vertices));
-    }
-
-    meshes
-}
-
-fn uvs_to_atlas_uvs(uvs: &[f32;2], atlas_width: i32, atlas_index: i32) -> [f32; 2] {
-
-    let x_index = atlas_index % atlas_width;
-    let y_index = (atlas_index as f32 / atlas_width as f32) as i32;
-    let texture_width = 1.0 / atlas_width as f32;
-
-    let mut new_uv = [ 0.0, 0.0];
-
-    if uvs[0] == 0.0 {
-        new_uv[0] = x_index as f32 * texture_width;
-    } else {
-        new_uv[0] = (x_index + 1) as f32 * texture_width;
-    }
-
-    if uvs[1] == 0.0 {
-        new_uv[1] = y_index as f32 * texture_width;
-    } else {
-        new_uv[1] = (y_index + 1) as f32 * texture_width;
-    }
-
-    return new_uv;
-}
-
-fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
-    // TODO group the vertices by quads (every 6 vertices = quad), determine which face they are,
-    // TODO pick a texture based on that (grass top dirt side)
-    let mut positions = Vec::new();
-    let mut normals = Vec::new();
-    let mut uvs = Vec::new();
-
-    for i in (0..vertices.len()).step_by(6) {
-
-        // TODO get min position height
-
-        let (position_, _, _) = vertices.get(i).unwrap();
-
-        let mut texture_atlas_index = 0;
-        let height = position_[1];
-
-        if height >= 30.0 {
-            texture_atlas_index = 1;
-        } else if height >= 24.0 {
-            texture_atlas_index = 0;
-        } else if height >= 18.0 {
-            texture_atlas_index = 2;
-        } else {
-            texture_atlas_index = 3;
-        }
-
-        for v_index in 0..6 {
-            let (position, normal, uv) = vertices.get(i + v_index).unwrap();
-
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(uvs_to_atlas_uvs(uv, 4, texture_atlas_index));
-        }
-    }
-
-    let mut mesh = Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
-    mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh
-}
+use crate::chunk_manager::ChunkManager;
+use crate::chunk_mesh::generate_mesh;
+use crate::chunk_vertexes::generate_chunk_vertexes;
 
 fn init(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let chunk_materials = ChunkMaterials {
-        wall_material: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("atlas.png").clone()),
-            unlit: true,
-            ..Default::default()
-        }),
-        grass_material: materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load("grass.png").clone()),
-            unlit: true,
-            ..Default::default()
-        }),
-    };
-
-    commands.spawn().insert(chunk_materials);
-
-
     let start_transform = Transform::from_translation(Vec3::new(32.0, 32.0, 32.0));
 
     commands
@@ -137,70 +50,30 @@ fn init(
         });
 
 
-    commands.spawn().insert(SpawnedChunks::new(get_chunk_containing_position(&start_transform.translation)));
-}
-
-struct ChunkMaterials {
-    wall_material: Handle<StandardMaterial>,
-    grass_material: Handle<StandardMaterial>
-}
-
-struct SpawnedChunks {
-    center: IVec3, // The chunk the player is in
-    spawned_chunks: std::sync::Mutex<Vec<IVec3>> // all The spawned chunks, mutex for when the generation is multi-threaded
-}
-
-impl SpawnedChunks {
-    pub fn new(center: IVec3) -> SpawnedChunks {
-        SpawnedChunks {
-            center,
-            spawned_chunks: std::sync::Mutex::new(Vec::new()),
-        }
-    }
-
-    pub fn request_next_chunk(&mut self) -> std::option::Option<IVec3> {
-        for x in 0..5 {
-            for y in 0..2 {
-                for z in 0..5 {
-                    // TODO HAS and SET need to be in the same lock
-                    if !self.has_loaded(&IVec3::new(x, y ,z)) {
-                        self.set_loaded(IVec3::new(x, y ,z));
-                        return Option::Some(IVec3::new(x, y, z));
-                    }
-                }
-            }
-        }
-
-        Option::None
-    }
-
-    pub fn has_loaded(&self, xyz: &IVec3) -> bool {
-        let vec = self.spawned_chunks.lock().unwrap();
-        vec.contains(xyz)
-    }
-
-    pub fn set_loaded(&mut self, xyz: IVec3) {
-        let mut vec = self.spawned_chunks.lock().unwrap();
-        vec.push(xyz);
-    }
+    commands.spawn().insert(ChunkManager::new(
+        get_chunk_containing_position(&start_transform.translation),
+            materials.add(StandardMaterial {
+                base_color_texture: Some(asset_server.load("atlas.png").clone()),
+                unlit: true,
+                ..Default::default()
+            })
+        ));
 }
 
 fn chunk_spawner(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     camera_query: Query<&Transform, With<FlyCamera>>,
-    mut spawned_chunks_query: Query<&mut SpawnedChunks>,
-    chunk_materials_query: Query<&ChunkMaterials>,
+    mut chunk_manager_query: Query<&mut ChunkManager>,
 ) {
     let camera_transform = camera_query.single().unwrap();
-    let mut spawned_chunks = spawned_chunks_query.single_mut().unwrap();
-    let chunk_materials = chunk_materials_query.single().unwrap();
+    let mut chunk_manager = chunk_manager_query.single_mut().unwrap();
 
 
     let chunk_vec = get_chunk_containing_position(&camera_transform.translation);
     //println!("Player is in Chunk region {} {} {}", chunk_vec.x, chunk_vec.y, chunk_vec.z);
 
-    let next_chunk = spawned_chunks.request_next_chunk();
+    let next_chunk = chunk_manager.request_next_chunk();
     if next_chunk.is_some() {
         let u_next_chunk = next_chunk.unwrap();
         let chunk_x = u_next_chunk.x;
@@ -223,7 +96,7 @@ fn chunk_spawner(
 
                 pbr_bundles.push(PbrBundle {
                     mesh: meshes.add( voxel_mesh).clone(),
-                    material: chunk_materials.wall_material.clone(),
+                    material: chunk_manager.clone_material(),
                     transform: chunk_transform,
                     ..Default::default()
                 });

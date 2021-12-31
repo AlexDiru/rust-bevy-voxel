@@ -1,128 +1,78 @@
-use crate::vert_gen::{back_plane_vertices, bottom_plane_vertices, front_plane_vertices, left_plane_vertices, right_plane_vertices, top_plane_vertices};
-use crate::chunk::{Chunk};
-use crate::{CHUNK_SIZE};
+use bevy::prelude::Mesh;
+use crate::chunk_vertexes::Vertexes;
+use crate::{Chunk, generate_chunk_vertexes};
 
-#[exec_time]
-pub fn generate_chunk_mesh(chunk: &Chunk) -> Vec<Vertexes> {
+pub fn generate_mesh(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Vec<Mesh> {
     let mut meshes = Vec::new();
-    let mut visited = Vec::new();
+    let vertices_arr = generate_chunk_vertexes(&Chunk::noise(chunk_x, chunk_y, chunk_z));
 
-    for mut n in 0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-        if visited.contains(&n) {
-            // We would have already checked the neighbours
-            n = n + 1;
-            continue;
-        }
-
-        let x = n % 32;
-        let y = (n / 32) % 32;
-        let z = n / (32 * 32);
-
-        if chunk.get_voxel(x, y, z).solid {
-            /*
-            x = i % max_x
-            y = ( i / max_x ) % max_y
-            z = i / ( max_x * max_y ) */
-            let mut res = generate_chunk_mesh_from_voxel(chunk, n,x, y, z);
-            meshes.push(res.vertexes);
-            visited.append(&mut res.visited);
-        } //else {
-          //  visited.push(n);
-        //}
+    for (_, vertices) in vertices_arr.iter().enumerate() {
+        meshes.push(create_chunk_mesh(vertices));
     }
 
     meshes
 }
 
-pub type Vertexes = Vec<([f32; 3], [f32; 3], [f32; 2])>;
+fn uvs_to_atlas_uvs(uvs: &[f32;2], atlas_width: i32, atlas_index: i32) -> [f32; 2] {
+    let x_index = atlas_index % atlas_width;
+    let y_index = (atlas_index as f32 / atlas_width as f32) as i32;
+    let texture_width = 1.0 / atlas_width as f32;
 
-struct ChunkMeshGenResult {
-    pub vertexes: Vertexes,
-    pub visited: Vec<usize>
+    let mut new_uv = [ 0.0, 0.0];
+
+    if uvs[0] == 0.0 {
+        new_uv[0] = x_index as f32 * texture_width;
+    } else {
+        new_uv[0] = (x_index + 1) as f32 * texture_width;
+    }
+
+    if uvs[1] == 0.0 {
+        new_uv[1] = y_index as f32 * texture_width;
+    } else {
+        new_uv[1] = (y_index + 1) as f32 * texture_width;
+    }
+
+    return new_uv;
 }
 
-fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: usize, start_y: usize, start_z: usize) -> ChunkMeshGenResult {
-    let mut vertices = Vec::new();
+fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
+    // TODO group the vertices by quads (every 6 vertices = quad), determine which face they are,
+    // TODO pick a texture based on that (grass top dirt side)
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut uvs = Vec::new();
 
-    let mut visited = Vec::new();
-    visited.push(voxel_index);
+    for i in (0..vertices.len()).step_by(6) {
 
-    let mut queue = Vec::new();
-    queue.push((start_x, start_y, start_z));
+        // TODO get min position height
 
-    while !queue.is_empty() {
-        let (x, y, z) = queue.pop().unwrap();
+        let (position_, _, _) = vertices.get(i).unwrap();
 
-        let mut vxs = Vec::new();
+        let mut texture_atlas_index = 0;
+        let height = position_[1];
 
-        if x > 0 {
-            vxs.push((x - 1, y, z)); // FRONT
+        if height >= 30.0 {
+            texture_atlas_index = 1;
+        } else if height >= 24.0 {
+            texture_atlas_index = 0;
+        } else if height >= 18.0 {
+            texture_atlas_index = 2;
         } else {
-            vertices.extend_from_slice(&front_plane_vertices(x as f32, z as f32, y as f32));
+            texture_atlas_index = 3;
         }
 
-        if x < 31 {
-            vxs.push((x + 1, y, z)); // BACK
-        } else {
-            vertices.extend_from_slice(&back_plane_vertices(x as f32, z as f32, y as f32));
-        }
+        for v_index in 0..6 {
+            let (position, normal, uv) = vertices.get(i + v_index).unwrap();
 
-        if y > 0 {
-            vxs.push((x, y - 1, z)); // LEFT
-        } else {
-            vertices.extend_from_slice(&left_plane_vertices(x as f32, z as f32, y as f32));
-        }
-
-        if y < 31 {
-            vxs.push((x, y + 1, z)); // RIGHT
-        } else {
-            vertices.extend_from_slice(&right_plane_vertices(x as f32, z as f32, y as f32));
-        }
-
-        if z > 0 {
-            vxs.push((x, y, z - 1)); // BOTTOM
-        } else {
-            vertices.extend_from_slice(&bottom_plane_vertices(x as f32, z as f32, y as f32));
-        }
-
-        if z < 31 {
-        vxs.push((x, y, z + 1)); // TOP
-        } else {
-            vertices.extend_from_slice(&top_plane_vertices(x as f32, z as f32, y as f32));
-        }
-
-        for (_, vx) in vxs.iter().enumerate() {
-            if chunk.get_voxel(vx.0, vx.1, vx.2).solid {
-                let vx_index = xyz_to_voxel_index(vx.0, vx.1, vx.2);
-                if !visited.contains(&vx_index) {
-                    visited.push(vx_index.clone());
-                    queue.push(vx.clone());
-                }
-            } else {
-                // Fill in a wall
-                if vx.0 < x {
-                    vertices.extend_from_slice(&front_plane_vertices(x as f32, z as f32, y as f32));
-                } else if vx.0 > x {
-                    vertices.extend_from_slice(&back_plane_vertices(x as f32, z as f32, y as f32));
-                } else if vx.1 < y {
-                    vertices.extend_from_slice(&left_plane_vertices(x as f32, z as f32, y as f32));
-                } else if vx.1 > y {
-                    vertices.extend_from_slice(&right_plane_vertices(x as f32, z as f32, y as f32));
-                } else if vx.2 < z {
-                    vertices.extend_from_slice(&bottom_plane_vertices(x as f32, z as f32, y as f32));
-                } else if vx.2 > z {
-                    vertices.extend_from_slice(&top_plane_vertices(x as f32, z as f32, y as f32));
-                }
-            }
+            positions.push(*position);
+            normals.push(*normal);
+            uvs.push(uvs_to_atlas_uvs(uv, 4, texture_atlas_index));
         }
     }
 
-    ChunkMeshGenResult {
-        visited,
-        vertexes: vertices
-    }
-}
-
-fn xyz_to_voxel_index(x: usize, y: usize, z: usize) -> usize {
-    x + (y * CHUNK_SIZE) + (z * CHUNK_SIZE * CHUNK_SIZE)
+    let mut mesh = Mesh::new(bevy::render::pipeline::PrimitiveTopology::TriangleList);
+    mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh
 }
