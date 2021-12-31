@@ -1,13 +1,13 @@
 use bevy::prelude::Mesh;
-use crate::chunk_vertexes::Vertexes;
-use crate::{Chunk, generate_chunk_vertexes};
+use crate::chunk_vertexes::{generate_chunk_quad_groups, Quads, Vertexes};
+use crate::{Chunk};
 
 pub fn generate_mesh(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Vec<Mesh> {
     let mut meshes = Vec::new();
-    let vertices_arr = generate_chunk_vertexes(&Chunk::noise(chunk_x, chunk_y, chunk_z));
+    let quad_groups = generate_chunk_quad_groups(&Chunk::noise(chunk_x, chunk_y, chunk_z));
 
-    for (_, vertices) in vertices_arr.iter().enumerate() {
-        meshes.push(create_chunk_mesh(vertices));
+    for quads in quad_groups.iter() {
+        meshes.push(create_chunk_mesh(quads));
     }
 
     meshes
@@ -35,18 +35,18 @@ fn uvs_to_atlas_uvs(uvs: &[f32;2], atlas_width: i32, atlas_index: i32) -> [f32; 
     return new_uv;
 }
 
-fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
+fn create_chunk_mesh(quads: &Quads) -> Mesh {
     // TODO group the vertices by quads (every 6 vertices = quad), determine which face they are,
     // TODO pick a texture based on that (grass top dirt side)
     let mut positions = Vec::new();
     let mut normals = Vec::new();
     let mut uvs = Vec::new();
 
-    for i in (0..vertices.len()).step_by(6) {
+    for quad in quads {
 
-        // TODO get min position height
+        // TODO get min position height, atm only gets from the first vertex (need to iter them all)
 
-        let (position_, _, _) = vertices.get(i).unwrap();
+        let (position_, _, _) = quad.0.get(0).unwrap();
 
         let mut texture_atlas_index = 0;
         let height = position_[1];
@@ -61,8 +61,8 @@ fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
             texture_atlas_index = 3;
         }
 
-        for v_index in 0..6 {
-            let (position, normal, uv) = vertices.get(i + v_index).unwrap();
+        for vertex in quad.0 {
+            let (position, normal, uv) = &vertex;
 
             positions.push(*position);
             normals.push(*normal);

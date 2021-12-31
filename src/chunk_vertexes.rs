@@ -3,13 +3,23 @@ use crate::chunk::{Chunk};
 use crate::{CHUNK_SIZE};
 use crate::chunk_vertexes::QuadDirection::FRONT;
 
+pub enum QuadDirection {
+    TOP,
+    BOTTOM,
+    LEFT,
+    RIGHT,
+    FRONT,
+    BACK
+}
+
 pub type Vertexes = Vec<([f32; 3], [f32; 3], [f32; 2])>;
 pub type Vertex = ([f32; 3], [f32; 3], [f32; 2]);
-pub type Quad = [Vertex; 6];
+pub type Quad = ([Vertex; 6], QuadDirection);
+pub type Quads = Vec<Quad>;
 
 #[exec_time]
-pub fn generate_chunk_vertexes(chunk: &Chunk) -> Vec<Vertexes> {
-    let mut meshes = Vec::new();
+pub fn generate_chunk_quad_groups(chunk: &Chunk) -> Vec<Quads> {
+    let mut meshes : Vec<Quads> = Vec::new();
     let mut visited = Vec::new();
 
     for mut n in 0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
@@ -29,7 +39,7 @@ pub fn generate_chunk_vertexes(chunk: &Chunk) -> Vec<Vertexes> {
             y = ( i / max_x ) % max_y
             z = i / ( max_x * max_y ) */
             let mut res = generate_chunk_mesh_from_voxel(chunk, n,x, y, z);
-            meshes.push(res.vertexes);
+            meshes.push(res.quads);
             visited.append(&mut res.visited);
         } //else {
           //  visited.push(n);
@@ -40,12 +50,12 @@ pub fn generate_chunk_vertexes(chunk: &Chunk) -> Vec<Vertexes> {
 }
 
 struct ChunkMeshGenResult {
-    pub vertexes: Vertexes,
+    pub quads: Quads,
     pub visited: Vec<usize>
 }
 
 fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: usize, start_y: usize, start_z: usize) -> ChunkMeshGenResult {
-    let mut vertices = Vec::new();
+    let mut quads: Vec<Quad> = Vec::new();
 
     let mut visited = Vec::new();
     visited.push(voxel_index);
@@ -96,8 +106,8 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: us
             quad_directions.push(QuadDirection::TOP);
         }
 
-        for quad_direction in quad_directions.iter() {
-            vertices.extend_from_slice(&generate_quad(quad_direction, x as f32, z as f32, y as f32));
+        for quad_direction in quad_directions.into_iter() {
+            quads.push(generate_quad(quad_direction, x as f32, z as f32, y as f32));
         }
 
         for (_, vx) in vxs.iter().enumerate() {
@@ -111,7 +121,7 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: us
                 // Fill in a wall
                 let mut quad_directions_2 = Vec::new();
 
-                let quad_direction = if vx.0 < x {
+                if vx.0 < x {
                     quad_directions_2.push(QuadDirection::FRONT)
                 } else if vx.0 > x {
                     quad_directions_2.push(QuadDirection::BACK)
@@ -125,8 +135,8 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: us
                     quad_directions_2.push(QuadDirection::TOP)
                 };
 
-                for quad_direction in quad_directions_2.iter() {
-                    vertices.extend_from_slice(&generate_quad(&quad_direction, x as f32, z as f32, y as f32));
+                for quad_direction in quad_directions_2.into_iter() {
+                    quads.push(generate_quad(quad_direction, x as f32, z as f32, y as f32));
                 }
             }
         }
@@ -134,7 +144,7 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: us
 
     ChunkMeshGenResult {
         visited,
-        vertexes: vertices
+        quads
     }
 }
 
@@ -142,70 +152,61 @@ fn xyz_to_voxel_index(x: usize, y: usize, z: usize) -> usize {
     x + (y * CHUNK_SIZE) + (z * CHUNK_SIZE * CHUNK_SIZE)
 }
 
-enum QuadDirection {
-    TOP,
-    BOTTOM,
-    LEFT,
-    RIGHT,
-    FRONT,
-    BACK
-}
-
-fn generate_quad(quad_direction: &QuadDirection, x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
+fn generate_quad(quad_direction: QuadDirection, x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
     match quad_direction {
         QuadDirection::TOP =>
-            [
+            ([
                 ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
                 ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-            ],
+            ], quad_direction),
         QuadDirection::LEFT =>
-            [
+            ([
                 ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-            ],
+            ], quad_direction),
         QuadDirection::RIGHT =>
-            [
+            ([
                 ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
                 ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
                 ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-            ],
+            ], quad_direction),
         QuadDirection::BOTTOM =>
-            [
+            ([
                 ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-            ],
+            ], quad_direction),
         QuadDirection::BACK =>
-            [
+            ([
                 ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
                 ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-            ],
+            ], quad_direction),
         QuadDirection::FRONT =>
-            [
+            ([
                 ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
                 ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
                 ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
                 ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
                 ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-            ]
+            ], quad_direction)
     }
 }

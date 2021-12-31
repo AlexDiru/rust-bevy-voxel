@@ -21,7 +21,6 @@ use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
 use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_I32};
 use crate::chunk_manager::{ChunkManager, get_chunk_containing_position};
 use crate::chunk_mesh::generate_mesh;
-use crate::chunk_vertexes::generate_chunk_vertexes;
 
 fn init(
     mut commands: Commands,
