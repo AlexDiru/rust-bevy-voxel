@@ -18,7 +18,7 @@ fn uvs_to_atlas_uvs(uvs: &[f32;2], atlas_width: i32, atlas_index: i32) -> [f32; 
     let y_index = (atlas_index as f32 / atlas_width as f32) as i32;
     let texture_width = 1.0 / atlas_width as f32;
 
-    let mut new_uv = [ 0.0, 0.0];
+    let mut new_uv = [ 0.0, 0.0 ];
 
     if uvs[0] == 0.0 {
         new_uv[0] = x_index as f32 * texture_width;
@@ -51,11 +51,11 @@ fn create_chunk_mesh(vertices: &Vertexes) -> Mesh {
         let mut texture_atlas_index = 0;
         let height = position_[1];
 
-        if height >= 30.0 {
+        if height >= 24.0 {
             texture_atlas_index = 1;
-        } else if height >= 24.0 {
-            texture_atlas_index = 0;
         } else if height >= 18.0 {
+            texture_atlas_index = 0;
+        } else if height >= 10.0 {
             texture_atlas_index = 2;
         } else {
             texture_atlas_index = 3;

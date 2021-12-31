@@ -24,7 +24,8 @@ fn sparse_chunk() -> ChunkGenerationAttributes {
 fn flat_chunk() -> ChunkGenerationAttributes {
     ChunkGenerationAttributes {
         calculate_solid_probability: |x: f32, y: f32, z: f32| -> f32 {
-            1.0 - (z / 40.0)
+            let c = 28.0; // The higher c is, the higher the probability that the higher voxels are solid
+            1.0 - (z / c)
         }
     }
 }

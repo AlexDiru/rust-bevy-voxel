@@ -1,6 +1,7 @@
 
 use crate::chunk::{Chunk};
 use crate::{CHUNK_SIZE};
+use crate::chunk_vertexes::QuadDirection::FRONT;
 
 pub type Vertexes = Vec<([f32; 3], [f32; 3], [f32; 2])>;
 pub type Vertex = ([f32; 3], [f32; 3], [f32; 2]);
@@ -57,40 +58,46 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: us
 
         let mut vxs = Vec::new();
 
+        let mut quad_directions = Vec::new();
+
         if x > 0 {
-            vxs.push((x - 1, y, z)); // FRONT
+            vxs.push((x - 1, y, z));
         } else {
-            vertices.extend_from_slice(&front_plane_vertices(x as f32, z as f32, y as f32));
+            quad_directions.push(QuadDirection::FRONT);
         }
 
         if x < 31 {
-            vxs.push((x + 1, y, z)); // BACK
+            vxs.push((x + 1, y, z));
         } else {
-            vertices.extend_from_slice(&back_plane_vertices(x as f32, z as f32, y as f32));
+            quad_directions.push(QuadDirection::BACK);
         }
 
         if y > 0 {
-            vxs.push((x, y - 1, z)); // LEFT
+            vxs.push((x, y - 1, z));
         } else {
-            vertices.extend_from_slice(&left_plane_vertices(x as f32, z as f32, y as f32));
+            quad_directions.push(QuadDirection::LEFT);
         }
 
         if y < 31 {
-            vxs.push((x, y + 1, z)); // RIGHT
+            vxs.push((x, y + 1, z));
         } else {
-            vertices.extend_from_slice(&right_plane_vertices(x as f32, z as f32, y as f32));
+            quad_directions.push(QuadDirection::RIGHT);
         }
 
         if z > 0 {
-            vxs.push((x, y, z - 1)); // BOTTOM
+            vxs.push((x, y, z - 1));
         } else {
-            vertices.extend_from_slice(&bottom_plane_vertices(x as f32, z as f32, y as f32));
+            quad_directions.push(QuadDirection::BOTTOM);
         }
 
         if z < 31 {
-        vxs.push((x, y, z + 1)); // TOP
+            vxs.push((x, y, z + 1));
         } else {
-            vertices.extend_from_slice(&top_plane_vertices(x as f32, z as f32, y as f32));
+            quad_directions.push(QuadDirection::TOP);
+        }
+
+        for quad_direction in quad_directions.iter() {
+            vertices.extend_from_slice(&generate_quad(quad_direction, x as f32, z as f32, y as f32));
         }
 
         for (_, vx) in vxs.iter().enumerate() {
@@ -102,18 +109,24 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: us
                 }
             } else {
                 // Fill in a wall
-                if vx.0 < x {
-                    vertices.extend_from_slice(&front_plane_vertices(x as f32, z as f32, y as f32));
+                let mut quad_directions_2 = Vec::new();
+
+                let quad_direction = if vx.0 < x {
+                    quad_directions_2.push(QuadDirection::FRONT)
                 } else if vx.0 > x {
-                    vertices.extend_from_slice(&back_plane_vertices(x as f32, z as f32, y as f32));
+                    quad_directions_2.push(QuadDirection::BACK)
                 } else if vx.1 < y {
-                    vertices.extend_from_slice(&left_plane_vertices(x as f32, z as f32, y as f32));
+                    quad_directions_2.push(QuadDirection::LEFT)
                 } else if vx.1 > y {
-                    vertices.extend_from_slice(&right_plane_vertices(x as f32, z as f32, y as f32));
+                    quad_directions_2.push(QuadDirection::RIGHT)
                 } else if vx.2 < z {
-                    vertices.extend_from_slice(&bottom_plane_vertices(x as f32, z as f32, y as f32));
+                    quad_directions_2.push(QuadDirection::BOTTOM)
                 } else if vx.2 > z {
-                    vertices.extend_from_slice(&top_plane_vertices(x as f32, z as f32, y as f32));
+                    quad_directions_2.push(QuadDirection::TOP)
+                };
+
+                for quad_direction in quad_directions_2.iter() {
+                    vertices.extend_from_slice(&generate_quad(&quad_direction, x as f32, z as f32, y as f32));
                 }
             }
         }
@@ -129,70 +142,70 @@ fn xyz_to_voxel_index(x: usize, y: usize, z: usize) -> usize {
     x + (y * CHUNK_SIZE) + (z * CHUNK_SIZE * CHUNK_SIZE)
 }
 
-fn top_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
-    [
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-    ]
+enum QuadDirection {
+    TOP,
+    BOTTOM,
+    LEFT,
+    RIGHT,
+    FRONT,
+    BACK
 }
 
-fn left_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
-    [
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-    ]
-}
-
-fn right_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
-    [
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-
-
-        ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-    ]
-}
-
-fn bottom_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
-    [
-        ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-    ]
-}
-
-fn back_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
-    [
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-    ]
-}
-
-fn front_plane_vertices(x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
-    [
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
-        ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
-        ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
-    ]
+fn generate_quad(quad_direction: &QuadDirection, x_offset: f32, y_offset: f32, z_offset: f32) -> Quad {
+    match quad_direction {
+        QuadDirection::TOP =>
+            [
+                ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+                ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+            ],
+        QuadDirection::LEFT =>
+            [
+                ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+            ],
+        QuadDirection::RIGHT =>
+            [
+                ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+                ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+                ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+            ],
+        QuadDirection::BOTTOM =>
+            [
+                ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+            ],
+        QuadDirection::BACK =>
+            [
+                ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([1.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+                ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([1.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([1.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+            ],
+        QuadDirection::FRONT =>
+            [
+                ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+                ([0.0 + x_offset, 1.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([0.0 + x_offset, 0.0 + y_offset, 0.0 + z_offset], [0.0, 1.0, 0.0], [0.0, 1.0]),
+                ([0.0 + x_offset, 1.0 + y_offset, 1.0 + z_offset], [0.0, 1.0, 0.0], [1.0, 0.0]),
+            ]
+    }
 }

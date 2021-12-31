@@ -16,13 +16,17 @@ impl ChunkManager {
         }
     }
 
+    pub fn get_spawned_chunk_count(&self) -> usize {
+        self.spawned_chunks.lock().unwrap().len()
+    }
+
     pub fn clone_material(&self) -> Handle<StandardMaterial> {
         self.atlas.clone()
     }
 
     pub fn request_next_chunk(&mut self) -> std::option::Option<IVec3> {
         for x in 0..10 {
-            for y in 0..2 {
+            for y in 0..1 {
                 for z in 0..10 {
                     // TODO HAS and SET need to be in the same lock
                     if !self.has_loaded(&IVec3::new(x, y ,z)) {

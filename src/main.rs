@@ -2,7 +2,6 @@ mod map;
 mod point;
 mod chunk;
 mod chunk_vertexes;
-mod chunks;
 mod chunk_manager;
 mod voxel;
 mod chunk_mesh;
@@ -45,7 +44,8 @@ fn init(
             sensitivity: 10.0,
             friction: 5.0,
             accel: 5.0,
-            yaw: 225.0,
+            pitch: 13.0,
+            yaw: 33884.0,
             ..Default::default()
         });
 
@@ -58,6 +58,11 @@ fn init(
                 ..Default::default()
             })
         ));
+}
+
+fn camera_debug_print(camera_query: Query<&FlyCamera>,) {
+    let camera = camera_query.single().unwrap();
+    println!("Camera Pitch {} Yaw {}", camera.pitch, camera.yaw);
 }
 
 fn main() {
@@ -76,5 +81,6 @@ fn main() {
         .add_plugin(FlyCameraPlugin)
         .add_system(systems::mouse_toggle::mouse_toggle.system())
         .add_system(systems::chunk_spawner::chunk_spawner.system())
+        .add_system(camera_debug_print.system())
         .run();
 }
