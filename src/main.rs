@@ -10,12 +10,9 @@ mod systems;
 #[macro_use]
 extern crate exec_time;
 
-use std::borrow::BorrowMut;
-use std::cmp::min;
 use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
 use bevy::render::wireframe::{WireframePlugin};
-use bevy::tasks::{AsyncComputeTaskPool, TaskPool, TaskPoolBuilder};
 use bevy::wgpu::{WgpuFeature, WgpuFeatures, WgpuOptions};
 use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
 use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_I32};
