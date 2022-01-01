@@ -77,6 +77,15 @@ fn main() {
         .add_plugin(FlyCameraPlugin)
         .add_system(systems::mouse_toggle::mouse_toggle.system())
         .add_system(systems::chunk_spawner::chunk_spawner.system())
-        .add_system(camera_debug_print.system())
+        .add_system(systems::chunk_spawner::foobar.system())
         .run();
 }
+
+//
+// fn main() {
+//     App::build()
+//         .add_plugins(DefaultPlugins)
+//         .add_startup_system(load_meshes.system())
+//         .add_system(poll_mesh_tasks.system())
+//         .run();
+// }
