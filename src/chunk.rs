@@ -6,7 +6,9 @@ pub const CHUNK_SIZE_I32: i32 = CHUNK_SIZE as i32;
 type Voxels = [[[Voxel; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
 
 pub struct Chunk {
-    voxels: Voxels
+    voxels: Voxels,
+    pub is_empty: bool, // A chunk with no solid voxels, massively optimised the y rendering of empty chunks
+    // TODO maybe take Minecraft approach of 16x16x280 chunks
 }
 
 pub struct ChunkGenerationAttributes {
@@ -36,6 +38,7 @@ fn non_solid_voxels() -> Voxels { [[[Voxel::new(false); CHUNK_SIZE]; CHUNK_SIZE]
 impl Chunk {
     pub fn noise(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Chunk {
         let mut voxels = non_solid_voxels();
+        let mut contains_solid_voxels = false;
 
         let noise_generator = OpenSimplexNoise::new(Some(883_279_212_983_182_319)); // if not provided, default seed is equal to 0
         let scale = 0.05;
@@ -61,10 +64,15 @@ impl Chunk {
             // The chance of the voxel being solid, increases the lower y is
             //let chance = (z as f64 / 16.0);
 
-            voxels[z][y][x].solid = val as f32 <= chance;
+            let solid = val as f32 <= chance;
+
+            voxels[z][y][x].solid = solid;
+            if solid {
+                contains_solid_voxels = true;
+            }
         }
 
-        Chunk { voxels  }
+        Chunk { voxels, is_empty: !contains_solid_voxels }
     }
 
     // pub fn sphere() -> Chunk {

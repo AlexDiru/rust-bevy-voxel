@@ -5,8 +5,11 @@ use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_fly_camera::FlyCamera;
 use futures_lite::future;
 use crate::{CHUNK_SIZE, CHUNK_SIZE_I32, ChunkManager, generate_mesh, StandardMaterial, Vec3};
-use crate::chunk_manager::get_chunk_containing_position;
+use crate::chunk_manager::{get_chunk_containing_position, SpawnedChunk};
 
+pub fn chunk_despawner() {
+
+}
 
 pub fn chunk_spawner(
     mut commands: Commands,
@@ -20,25 +23,27 @@ pub fn chunk_spawner(
 
 
     let chunk_vec = get_chunk_containing_position(&camera_transform.translation);
-    //println!("Player is in Chunk region {} {} {}", chunk_vec.x, chunk_vec.y, chunk_vec.z);
+    println!("Player is in Chunk region {} {} {} with position {} {} {}", chunk_vec.x, chunk_vec.y, chunk_vec.z, camera_transform.translation.x, camera_transform.translation.y, camera_transform.translation.z);
 
-    let mut next_chunk: std::option::Option<IVec3> = None;
-
-    if chunk_manager.get_spawned_chunk_count() < 250 {
-        next_chunk = chunk_manager.request_next_chunk();
+    for chunk_to_despawn in chunk_manager.chunks_to_despawn(chunk_vec) {
+        let task = thread_pool.spawn(async move {
+            DespawnChunkTask {
+                chunk: IVec3::new(chunk_to_despawn.x, chunk_to_despawn.y, chunk_to_despawn.z)
+            }
+        });
+        commands.spawn().insert(task);
     }
 
-    if next_chunk.is_some() {
+    let chunks_to_spawn = chunk_manager.request_chunks_to_spawn(chunk_vec);
 
-        let u_next_chunk = next_chunk.unwrap();
+    for u_next_chunk in chunks_to_spawn {
+        chunk_manager.set_chunk_being_spawned(u_next_chunk.clone());
         let chunk_x = u_next_chunk.x;
         let chunk_y = u_next_chunk.y;
         let chunk_z = u_next_chunk.z;
 
-        // TODO how to make async? Bevy has fuck all documentation for task
         let task  = thread_pool.spawn(async move {
-            println!("Chunk {}, {}, {} has not been loaded, spawning it now", chunk_x, chunk_y, chunk_z);
-            VoxelMeshesTask {
+            RenderChunkMeshesTask {
                 meshes: generate_mesh(chunk_x, chunk_z, chunk_y),
                 chunk_x,
                 chunk_y,
@@ -50,16 +55,39 @@ pub fn chunk_spawner(
     }
 }
 
-pub struct VoxelMeshesTask {
+pub struct RenderChunkMeshesTask {
     meshes: Vec<Mesh>,
     chunk_x: i32,
     chunk_y: i32,
     chunk_z: i32
 }
 
-pub fn foobar(
+pub struct DespawnChunkTask {
+    chunk: IVec3,
+}
+
+pub fn despawn_chunk_processor(
     mut commands: Commands,
-    mut transform_tasks: Query<(Entity, &mut Task<VoxelMeshesTask>)>,
+    mut despawn_chunk_tasks: Query<(Entity, &mut Task<DespawnChunkTask>)>,
+    mut chunk_manager_query: Query<&mut ChunkManager>
+) {
+    let mut chunk_manager = chunk_manager_query.single_mut().unwrap();
+    for (entity, mut task) in despawn_chunk_tasks.iter_mut() {
+        if let Some(despawn_chunk_task) = future::block_on(future::poll_once(&mut *task)) {
+            println!("Despawning chunk {} {} {}", despawn_chunk_task.chunk.x, despawn_chunk_task.chunk.y, despawn_chunk_task.chunk.z);
+            let entity_to_despawn = chunk_manager.despawn_chunk(despawn_chunk_task.chunk);
+
+            if entity_to_despawn.is_some() {
+                commands.entity(entity_to_despawn.unwrap()).despawn();
+            }
+            commands.entity(entity).remove::<Task<DespawnChunkTask>>();
+        }
+    }
+}
+
+pub fn render_voxel_mesh(
+    mut commands: Commands,
+    mut transform_tasks: Query<(Entity, &mut Task<RenderChunkMeshesTask>)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut chunk_manager_query: Query<&mut ChunkManager>) {
@@ -68,11 +96,12 @@ pub fn foobar(
 
     for (entity, mut task) in transform_tasks.iter_mut() {
         if let Some(voxel_mesh_task) = future::block_on(future::poll_once(&mut *task)) {
-            println!("THREAD");
             let chunk_x = voxel_mesh_task.chunk_x;
             let chunk_y = voxel_mesh_task.chunk_y;
             let chunk_z = voxel_mesh_task.chunk_z;
             let voxel_meshes = voxel_mesh_task.meshes;
+
+            println!("Spawning chunk {} {} {}", chunk_x, chunk_y, chunk_z);
 
             let mut pbr_bundles = Vec::new();
 
@@ -91,7 +120,11 @@ pub fn foobar(
             }
 
             for pbr_bundle in pbr_bundles.into_iter() {
-                commands.spawn_bundle(pbr_bundle);
+                let entity = commands.spawn_bundle(pbr_bundle).id();
+                chunk_manager.add_chunk_entity(SpawnedChunk {
+                    chunk: IVec3::new(chunk_x, chunk_y, chunk_z),
+                    entity,
+                });
             }
 
             // Water
@@ -111,7 +144,7 @@ pub fn foobar(
             //
             // println!("Chunk {}, {}, {} loaded", chunk_x, chunk_y, chunk_z);
 
-            commands.entity(entity).remove::<Task<VoxelMeshesTask>>();
+            commands.entity(entity).remove::<Task<RenderChunkMeshesTask>>();
         }
     }
 

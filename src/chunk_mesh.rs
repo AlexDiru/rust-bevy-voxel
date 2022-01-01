@@ -4,7 +4,13 @@ use crate::{Chunk};
 
 pub fn generate_mesh(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Vec<Mesh> {
     let mut meshes = Vec::new();
-    let voxel_quad_groups = generate_chunk_quad_groups(&Chunk::noise(chunk_x, chunk_y, chunk_z));
+    let chunk = &Chunk::noise(chunk_x, chunk_y, chunk_z);
+
+    if chunk.is_empty {
+        return Vec::new();
+    }
+
+    let voxel_quad_groups = generate_chunk_quad_groups(&chunk);
 
     for voxel_quads in voxel_quad_groups.iter() {
         meshes.push(create_chunk_mesh(voxel_quads));

@@ -24,7 +24,7 @@ fn init(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let start_transform = Transform::from_translation(Vec3::new(32.0, 32.0, 32.0));
+    let start_transform = Transform::from_translation(Vec3::new(32.0, 30.0, 32.0));
 
     commands
         .spawn()
@@ -39,7 +39,8 @@ fn init(
         .insert(FlyCamera {
             sensitivity: 10.0,
             friction: 5.0,
-            accel: 5.0,
+            accel: 10.0,
+            max_speed: 1000.0,
             pitch: 13.0,
             yaw: 33884.0,
             ..Default::default()
@@ -77,15 +78,7 @@ fn main() {
         .add_plugin(FlyCameraPlugin)
         .add_system(systems::mouse_toggle::mouse_toggle.system())
         .add_system(systems::chunk_spawner::chunk_spawner.system())
-        .add_system(systems::chunk_spawner::foobar.system())
+        .add_system(systems::chunk_spawner::render_voxel_mesh.system())
+        .add_system(systems::chunk_spawner::despawn_chunk_processor.system())
         .run();
 }
-
-//
-// fn main() {
-//     App::build()
-//         .add_plugins(DefaultPlugins)
-//         .add_startup_system(load_meshes.system())
-//         .add_system(poll_mesh_tasks.system())
-//         .run();
-// }
