@@ -1,9 +1,7 @@
-use std::cmp::Ordering::{Equal, Greater, Less};
 use std::ops::Range;
-use std::thread::spawn;
 use bevy::prelude::{Handle, Vec3};
 use bevy::prelude::Entity;
-use crate::{CHUNK_SIZE, Commands, IVec3, StandardMaterial};
+use crate::{CHUNK_SIZE, IVec3, StandardMaterial};
 
 pub struct SpawnedChunk {
     pub chunk: IVec3,
@@ -29,7 +27,7 @@ impl ChunkManager {
             atlas,
             spawned_chunks: std::sync::Mutex::new(Vec::new()),
             chunks_currently_being_spawned: std::sync::Mutex::new(Vec::new()), // The thread is doing work to spawn this chunk, once spawned it is removed from here and pushed to spawned_chunks
-            chunk_render_distance: 3,
+            chunk_render_distance: 5,
             chunk_render_distance_y_range: 0..1,
         }
     }

@@ -1,8 +1,6 @@
 
 use crate::chunk::{Chunk};
-use crate::{CHUNK_SIZE, IVec3};
-use crate::chunk_vertexes::QuadDirection::FRONT;
-use crate::KeyCode::P;
+use crate::{CHUNK_SIZE};
 
 pub enum QuadDirection {
     TOP,
