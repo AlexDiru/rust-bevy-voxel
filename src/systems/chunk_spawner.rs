@@ -18,8 +18,8 @@ pub fn chunk_spawner(
     input: Res<Input<KeyCode>>,
     thread_pool: Res<AsyncComputeTaskPool>,
 ) {
-    let camera_transform = camera_query.single().unwrap();
-    let mut chunk_manager = chunk_manager_query.single_mut().unwrap();
+    let camera_transform = camera_query.single();
+    let mut chunk_manager = chunk_manager_query.single_mut();
 
 
     let chunk_vec = get_chunk_containing_position(&camera_transform.translation);
@@ -71,7 +71,7 @@ pub fn despawn_chunk_processor(
     mut despawn_chunk_tasks: Query<(Entity, &mut Task<DespawnChunkTask>)>,
     mut chunk_manager_query: Query<&mut ChunkManager>
 ) {
-    let mut chunk_manager = chunk_manager_query.single_mut().unwrap();
+    let mut chunk_manager = chunk_manager_query.single_mut();
     for (entity, mut task) in despawn_chunk_tasks.iter_mut() {
         if let Some(despawn_chunk_task) = future::block_on(future::poll_once(&mut *task)) {
             println!("Despawning chunk {} {} {}", despawn_chunk_task.chunk.x, despawn_chunk_task.chunk.y, despawn_chunk_task.chunk.z);
@@ -92,7 +92,7 @@ pub fn render_voxel_mesh(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut chunk_manager_query: Query<&mut ChunkManager>) {
 
-    let mut chunk_manager = chunk_manager_query.single_mut().unwrap();
+    let mut chunk_manager = chunk_manager_query.single_mut();
 
     for (entity, mut task) in transform_tasks.iter_mut() {
         if let Some(voxel_mesh_task) = future::block_on(future::poll_once(&mut *task)) {

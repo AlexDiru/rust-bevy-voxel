@@ -1,13 +1,14 @@
 use std::ops::Range;
 use bevy::prelude::{Handle, Vec3};
 use bevy::prelude::Entity;
-use crate::{CHUNK_SIZE, IVec3, StandardMaterial};
+use crate::{Chunk, CHUNK_SIZE, IVec3, StandardMaterial};
 
 pub struct SpawnedChunk {
     pub chunk: IVec3,
     pub entity: Entity
 }
 
+#[derive(bevy::prelude::Component)]
 pub struct ChunkManager {
     center: IVec3, // The chunk the player is in
     atlas: Handle<StandardMaterial>,

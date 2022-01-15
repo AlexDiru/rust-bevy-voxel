@@ -12,8 +12,7 @@ extern crate exec_time;
 
 use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
-use bevy::render::wireframe::{WireframePlugin};
-use bevy::wgpu::{WgpuFeature, WgpuFeatures, WgpuOptions};
+use bevy::render::options::WgpuFeatures;
 use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
 use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_I32};
 use crate::chunk_manager::{ChunkManager, get_chunk_containing_position};
@@ -58,22 +57,20 @@ fn init(
 }
 
 fn camera_debug_print(camera_query: Query<&FlyCamera>,) {
-    let camera = camera_query.single().unwrap();
+    let camera = camera_query.single();
     println!("Camera Pitch {} Yaw {}", camera.pitch, camera.yaw);
 }
 
 fn main() {
-    App::build()
+    App::new()
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
         .insert_resource(Msaa { samples: 4 })
-        .insert_resource(WgpuOptions {
-            features: WgpuFeatures {
-                features: vec![WgpuFeature::NonFillPolygonMode]
-            },
+        .insert_resource(bevy::render::options::WgpuOptions {
+            features: bevy::render::options::WgpuFeatures::all_native_mask(),
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(WireframePlugin)
+        .add_plugin(bevy::pbr::wireframe::WireframePlugin)
         .add_startup_system(init.system())
         .add_plugin(FlyCameraPlugin)
         .add_system(systems::mouse_toggle::mouse_toggle.system())
