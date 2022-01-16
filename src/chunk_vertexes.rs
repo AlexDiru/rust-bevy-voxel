@@ -1,6 +1,5 @@
 
-use crate::chunk::{Chunk};
-use crate::{CHUNK_SIZE};
+use crate::chunk::{Chunk, CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z, to_3d};
 
 pub enum QuadDirection {
     TOP,
@@ -69,16 +68,17 @@ pub fn generate_chunk_quad_groups(chunk: &Chunk) -> Vec<VoxelQuads> {
     let mut meshes : Vec<VoxelQuads> = Vec::new();
     let mut visited = Vec::new();
 
-    for mut n in 0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+    for mut n in 0..(CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z) {
         if visited.contains(&n) {
             // We would have already checked the neighbours
             n = n + 1;
             continue;
         }
 
-        let x = n % 32;
-        let y = (n / 32) % 32;
-        let z = n / (32 * 32);
+        let xyz = to_3d(n as i32);
+        let x = xyz.x as usize;
+        let y = xyz.y as usize;
+        let z = xyz.z as usize;
 
         if chunk.get_voxel(x, y, z).solid {
             /*
@@ -196,7 +196,7 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: us
 }
 
 fn xyz_to_voxel_index(x: usize, y: usize, z: usize) -> usize {
-    x + (y * CHUNK_SIZE) + (z * CHUNK_SIZE * CHUNK_SIZE)
+    x + (y * CHUNK_SIZE_X) + (z * CHUNK_SIZE_X * CHUNK_SIZE_Y)
 }
 
 fn generate_voxel_quad(quad_direction: QuadDirection, x: usize, y: usize, z: usize) -> VoxelQuad {

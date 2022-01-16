@@ -1,9 +1,14 @@
+use bevy::math::IVec3;
 use opensimplex_noise_rs::OpenSimplexNoise;
 use crate::voxel::Voxel;
 
-pub const CHUNK_SIZE: usize = 32;
-pub const CHUNK_SIZE_I32: i32 = CHUNK_SIZE as i32;
-type Voxels = [[[Voxel; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
+pub const CHUNK_SIZE_X: usize = 32;
+pub const CHUNK_SIZE_Y: usize = 32;
+pub const CHUNK_SIZE_Z: usize = 32;
+pub const CHUNK_SIZE_X_I32: i32 = CHUNK_SIZE_X as i32;
+pub const CHUNK_SIZE_Y_I32: i32 = CHUNK_SIZE_Y as i32;
+pub const CHUNK_SIZE_Z_I32: i32 = CHUNK_SIZE_Z as i32;
+type Voxels = [[[Voxel; CHUNK_SIZE_X]; CHUNK_SIZE_Y]; CHUNK_SIZE_Z];
 
 pub struct Chunk {
     voxels: Voxels,
@@ -32,8 +37,16 @@ fn flat_chunk() -> ChunkGenerationAttributes {
     }
 }
 
-fn solid_voxels() -> Voxels { [[[Voxel::new(true); CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE] }
-fn non_solid_voxels() -> Voxels { [[[Voxel::new(false); CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE] }
+fn solid_voxels() -> Voxels { [[[Voxel::new(true); CHUNK_SIZE_X]; CHUNK_SIZE_Y]; CHUNK_SIZE_Z] }
+fn non_solid_voxels() -> Voxels { [[[Voxel::new(false); CHUNK_SIZE_X]; CHUNK_SIZE_Y]; CHUNK_SIZE_Z] }
+
+pub fn to_3d(idx: i32) -> IVec3 {
+    let z = idx / (CHUNK_SIZE_X_I32 * CHUNK_SIZE_Y_I32);
+    let idx_yx = idx - (z * CHUNK_SIZE_X_I32 * CHUNK_SIZE_Y_I32);
+    let y = idx_yx / CHUNK_SIZE_X_I32;
+    let x = idx_yx % CHUNK_SIZE_X_I32;
+    return IVec3::new(x, y, z)
+}
 
 impl Chunk {
     pub fn noise(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Chunk {
@@ -41,15 +54,16 @@ impl Chunk {
         let mut contains_solid_voxels = false;
 
         let noise_generator = OpenSimplexNoise::new(Some(883_279_212_983_182_319)); // if not provided, default seed is equal to 0
-        let scale = 0.05;
-        let x_offset = chunk_x * CHUNK_SIZE_I32;
-        let y_offset = chunk_y * CHUNK_SIZE_I32;
-        let z_offset = chunk_z * CHUNK_SIZE_I32;
+        let scale = 0.1;
+        let x_offset = chunk_x * CHUNK_SIZE_X_I32;
+        let y_offset = chunk_y * CHUNK_SIZE_Y_I32 + 8;
+        let z_offset = chunk_z * CHUNK_SIZE_Z_I32;
 
-        for n in 0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-            let x = n % CHUNK_SIZE;
-            let y = (n as f32 / CHUNK_SIZE as f32) as usize % CHUNK_SIZE;
-            let z = n / (CHUNK_SIZE * CHUNK_SIZE);
+        for n in 0..(CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z) {
+            let xyz = to_3d(n as i32);
+            let x = xyz.x as usize;
+            let y = xyz.y as usize;
+            let z = xyz.z as usize;
 
             let mut val = noise_generator.eval_3d(
                 (x as i32 + x_offset) as f64 * scale,

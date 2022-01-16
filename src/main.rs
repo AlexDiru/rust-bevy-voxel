@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
 use bevy::render::options::WgpuFeatures;
 use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
-use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_SIZE_I32};
+use crate::chunk::{Chunk};
 use crate::chunk_manager::{ChunkManager, get_chunk_containing_position};
 use crate::chunk_mesh::generate_mesh;
 

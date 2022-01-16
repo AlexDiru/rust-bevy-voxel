@@ -1,7 +1,8 @@
 use std::ops::Range;
 use bevy::prelude::{Handle, Vec3};
 use bevy::prelude::Entity;
-use crate::{Chunk, CHUNK_SIZE, IVec3, StandardMaterial};
+use crate::{Chunk, IVec3, StandardMaterial};
+use crate::chunk::{CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z};
 
 pub struct SpawnedChunk {
     pub chunk: IVec3,
@@ -28,7 +29,7 @@ impl ChunkManager {
             atlas,
             spawned_chunks: std::sync::Mutex::new(Vec::new()),
             chunks_currently_being_spawned: std::sync::Mutex::new(Vec::new()), // The thread is doing work to spawn this chunk, once spawned it is removed from here and pushed to spawned_chunks
-            chunk_render_distance: 5,
+            chunk_render_distance: 3,
             chunk_render_distance_y_range: 0..1,
         }
     }
@@ -113,9 +114,9 @@ impl ChunkManager {
 
         for x in range.clone() {
             for y in range.clone() {
-                for z in self.chunk_render_distance_y_range.clone() {
-                    chunks_in_render_zone.push(IVec3::new(x, z, y));
-                }
+                //for z in self.chunk_render_distance_y_range.clone() {
+                    chunks_in_render_zone.push(IVec3::new(x, 0, y));
+                //}
             }
         }
         chunks_in_render_zone.sort_by(|a: &IVec3, b: &IVec3| {
@@ -166,9 +167,9 @@ pub fn get_chunk_containing_position(position: &Vec3) -> IVec3 {
         chunk_offset_z = -1;
     }
 
-    IVec3::new((position.x / CHUNK_SIZE as f32) as i32 + chunk_offset_x,
-               (position.y / CHUNK_SIZE as f32) as i32 + chunk_offset_y,
-               (position.z / CHUNK_SIZE as f32) as i32 + chunk_offset_z)
+    IVec3::new((position.x / CHUNK_SIZE_X as f32) as i32 + chunk_offset_x,
+               0,//(position.y / CHUNK_SIZE_Y as f32) as i32 + chunk_offset_y,
+               (position.z / CHUNK_SIZE_Z as f32) as i32 + chunk_offset_z)
 }
 
 fn get_rings(layers: &Vec<i32>, inds: &Vec<(i32, i32)>) -> Vec<(i32, i32)> {

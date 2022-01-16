@@ -4,7 +4,8 @@ use bevy::prelude::{Assets, Commands, Entity, KeyCode, Mesh, PbrBundle, Query, R
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_fly_camera::FlyCamera;
 use futures_lite::future;
-use crate::{CHUNK_SIZE_I32, ChunkManager, generate_mesh, StandardMaterial, Vec3};
+use crate::{ChunkManager, generate_mesh, StandardMaterial, Vec3};
+use crate::chunk::{CHUNK_SIZE_X_I32, CHUNK_SIZE_Y_I32, CHUNK_SIZE_Z_I32};
 use crate::chunk_manager::{get_chunk_containing_position, SpawnedChunk};
 
 pub fn chunk_despawner() {
@@ -106,9 +107,9 @@ pub fn render_voxel_mesh(
             let mut pbr_bundles = Vec::new();
 
             let chunk_transform = Transform::from_translation(Vec3::new(
-                (chunk_x * CHUNK_SIZE_I32) as f32,
-                (chunk_y * CHUNK_SIZE_I32) as f32,
-                (chunk_z * CHUNK_SIZE_I32) as f32));
+                (chunk_x * CHUNK_SIZE_X_I32) as f32,
+                (chunk_y * CHUNK_SIZE_Y_I32) as f32,
+                (chunk_z * CHUNK_SIZE_Z_I32) as f32));
 
             for voxel_mesh in voxel_meshes {
                 pbr_bundles.push(PbrBundle {
