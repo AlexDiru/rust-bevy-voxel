@@ -4,8 +4,7 @@ use bevy::prelude::{Assets, Commands, Entity, KeyCode, Mesh, PbrBundle, Query, R
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_fly_camera::FlyCamera;
 use futures_lite::future;
-use crate::{ChunkManager, generate_mesh, StandardMaterial, Vec3};
-use crate::chunk::{CHUNK_SIZE_X_I32, CHUNK_SIZE_Y_I32, CHUNK_SIZE_Z_I32};
+use crate::{Chunk, ChunkManager, generate_mesh, StandardMaterial, Vec3};
 use crate::chunk_manager::{get_chunk_containing_position, SpawnedChunk};
 
 pub fn chunk_despawner() {
@@ -22,11 +21,12 @@ pub fn chunk_spawner(
     let camera_transform = camera_query.single();
     let mut chunk_manager = chunk_manager_query.single_mut();
 
+    let player_chunk = get_chunk_containing_position(&camera_transform.translation, &chunk_manager.chunk_size);
+    println!("Player is in Chunk region {} {} {} with position {} {} {}",
+             player_chunk.x, player_chunk.y, player_chunk.z,
+             camera_transform.translation.x, camera_transform.translation.y, camera_transform.translation.z);
 
-    let chunk_vec = get_chunk_containing_position(&camera_transform.translation);
-    println!("Player is in Chunk region {} {} {} with position {} {} {}", chunk_vec.x, chunk_vec.y, chunk_vec.z, camera_transform.translation.x, camera_transform.translation.y, camera_transform.translation.z);
-
-    for chunk_to_despawn in chunk_manager.chunks_to_despawn(chunk_vec) {
+    for chunk_to_despawn in chunk_manager.chunks_to_despawn(player_chunk) {
         let task = thread_pool.spawn(async move {
             DespawnChunkTask {
                 chunk: IVec3::new(chunk_to_despawn.x, chunk_to_despawn.y, chunk_to_despawn.z)
@@ -35,20 +35,20 @@ pub fn chunk_spawner(
         commands.spawn().insert(task);
     }
 
-    let chunks_to_spawn = chunk_manager.request_chunks_to_spawn(chunk_vec);
+    let chunks_to_spawn = chunk_manager.request_chunks_to_spawn(player_chunk);
 
-    for u_next_chunk in chunks_to_spawn {
-        chunk_manager.set_chunk_being_spawned(u_next_chunk.clone());
-        let chunk_x = u_next_chunk.x;
-        let chunk_y = u_next_chunk.y;
-        let chunk_z = u_next_chunk.z;
+    for chunk_to_spawn in chunks_to_spawn {
+        chunk_manager.set_chunk_being_spawned(chunk_to_spawn.clone());
+
+        let chunk_size = chunk_manager.chunk_size.clone();
 
         let task  = thread_pool.spawn(async move {
+            let chunk = Chunk::noise(chunk_size, chunk_to_spawn.clone());
+            let mesh = generate_mesh(&chunk);
+
             RenderChunkMeshesTask {
-                meshes: generate_mesh(chunk_x, chunk_z, chunk_y),
-                chunk_x,
-                chunk_y,
-                chunk_z
+                chunk,
+                mesh,
             }
         });
 
@@ -57,10 +57,8 @@ pub fn chunk_spawner(
 }
 
 pub struct RenderChunkMeshesTask {
-    meshes: Vec<Mesh>,
-    chunk_x: i32,
-    chunk_y: i32,
-    chunk_z: i32
+    mesh: Mesh,
+    chunk: Chunk,
 }
 
 pub struct DespawnChunkTask {
@@ -96,34 +94,27 @@ pub fn render_voxel_mesh(
     let mut chunk_manager = chunk_manager_query.single_mut();
 
     for (entity, mut task) in transform_tasks.iter_mut() {
-        if let Some(voxel_mesh_task) = future::block_on(future::poll_once(&mut *task)) {
-            let chunk_x = voxel_mesh_task.chunk_x;
-            let chunk_y = voxel_mesh_task.chunk_y;
-            let chunk_z = voxel_mesh_task.chunk_z;
-            let voxel_meshes = voxel_mesh_task.meshes;
+        if let Some(render_chunk_mesh_task) = future::block_on(future::poll_once(&mut *task)) {
+            let chunk = render_chunk_mesh_task.chunk;
+            let voxel_mesh = render_chunk_mesh_task.mesh;
 
-            println!("Spawning chunk {} {} {}", chunk_x, chunk_y, chunk_z);
+            println!("Spawning chunk {} {} {}", chunk.location.x, chunk.location.y, chunk.location.z);
 
             let mut pbr_bundles = Vec::new();
 
-            let chunk_transform = Transform::from_translation(Vec3::new(
-                (chunk_x * CHUNK_SIZE_X_I32) as f32,
-                (chunk_y * CHUNK_SIZE_Y_I32) as f32,
-                (chunk_z * CHUNK_SIZE_Z_I32) as f32));
+            let chunk_transform = chunk.get_transform();
 
-            for voxel_mesh in voxel_meshes {
                 pbr_bundles.push(PbrBundle {
                     mesh: meshes.add(voxel_mesh).clone(),
                     material: chunk_manager.clone_material(),
                     transform: chunk_transform,
                     ..Default::default()
                 });
-            }
 
             for pbr_bundle in pbr_bundles.into_iter() {
                 let entity = commands.spawn_bundle(pbr_bundle).id();
                 chunk_manager.add_chunk_entity(SpawnedChunk {
-                    chunk: IVec3::new(chunk_x, chunk_y, chunk_z),
+                    chunk_location: chunk.location,
                     entity,
                 });
             }

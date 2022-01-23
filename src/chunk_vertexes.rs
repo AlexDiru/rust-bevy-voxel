@@ -1,6 +1,7 @@
+use crate::{Chunk, IVec3};
+use crate::chunk_utils::{voxel_index_to_xyz, xyz_to_voxel_index};
 
-use crate::chunk::{Chunk, CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z, to_3d};
-
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum QuadDirection {
     TOP,
     BOTTOM,
@@ -20,9 +21,9 @@ pub struct Quad {
 
 pub struct VoxelQuad {
     pub quad: Quad,
-    pub x: usize,
-    pub y: usize,
-    pub z: usize,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
 }
 
 impl Quad {
@@ -64,36 +65,8 @@ pub type Quads = Vec<Quad>;
 pub type VoxelQuads = Vec<VoxelQuad>;
 
 #[exec_time]
-pub fn generate_chunk_quad_groups(chunk: &Chunk) -> Vec<VoxelQuads> {
-    let mut meshes : Vec<VoxelQuads> = Vec::new();
-    let mut visited = Vec::new();
-
-    for mut n in 0..(CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z) {
-        if visited.contains(&n) {
-            // We would have already checked the neighbours
-            n = n + 1;
-            continue;
-        }
-
-        let xyz = to_3d(n as i32);
-        let x = xyz.x as usize;
-        let y = xyz.y as usize;
-        let z = xyz.z as usize;
-
-        if chunk.get_voxel(x, y, z).solid {
-            /*
-            x = i % max_x
-            y = ( i / max_x ) % max_y
-            z = i / ( max_x * max_y ) */
-            let mut res = generate_chunk_mesh_from_voxel(chunk, n,x, y, z);
-            meshes.push(res.voxel_quads);
-            visited.append(&mut res.visited);
-        } //else {
-          //  visited.push(n);
-        //}
-    }
-
-    meshes
+pub fn generate_chunk_quad_groups(chunk: &Chunk) -> VoxelQuads {
+    generate_chunk_mesh_from_voxel(chunk).voxel_quads
 }
 
 struct ChunkMeshGenResult {
@@ -101,105 +74,63 @@ struct ChunkMeshGenResult {
     pub visited: Vec<usize>
 }
 
-fn generate_chunk_mesh_from_voxel(chunk: &Chunk, voxel_index: usize, start_x: usize, start_y: usize, start_z: usize) -> ChunkMeshGenResult {
+struct OffsetAndDirection {
+    pub offset: IVec3,
+    pub direction: QuadDirection,
+}
+
+fn generate_chunk_mesh_from_voxel(chunk: &Chunk) -> ChunkMeshGenResult {
     let mut voxel_quads: Vec<VoxelQuad> = Vec::new();
 
-    let mut visited = Vec::new();
-    visited.push(voxel_index);
-
-    let mut queue = Vec::new();
-    queue.push((start_x, start_y, start_z));
-
-    while !queue.is_empty() {
-        let (x, y, z) = queue.pop().unwrap();
-
-        let mut vxs = Vec::new();
-
-        let mut quad_directions = Vec::new();
-
-        if x > 0 {
-            vxs.push((x - 1, y, z));
-        } else {
-            quad_directions.push(QuadDirection::FRONT);
+    for n in 0..(32 * 32 * 32) {
+        if !chunk.voxels[n].solid {
+            continue
         }
 
-        if x < 31 {
-            vxs.push((x + 1, y, z));
-        } else {
-            quad_directions.push(QuadDirection::BACK);
-        }
+        let center_voxel = voxel_index_to_xyz(n as usize as i32, &chunk.size);
+        let x = center_voxel.x;
+        let y = center_voxel.y;
+        let z = center_voxel.z;
 
-        if y > 0 {
-            vxs.push((x, y - 1, z));
-        } else {
-            quad_directions.push(QuadDirection::LEFT);
-        }
+        let offset_and_directions : [OffsetAndDirection; 6] = [
+            OffsetAndDirection { offset: IVec3::new(-1, 0, 0), direction: QuadDirection::FRONT } ,
+            OffsetAndDirection { offset: IVec3::new(1, 0, 0), direction: QuadDirection::BACK } ,
+            OffsetAndDirection { offset: IVec3::new(0, 0, -1), direction: QuadDirection::BOTTOM } ,
+            OffsetAndDirection { offset: IVec3::new(0, 0, 1), direction: QuadDirection::TOP } ,
+            OffsetAndDirection { offset: IVec3::new(0, -1,  0),direction:  QuadDirection::LEFT } ,
+            OffsetAndDirection { offset: IVec3::new(0, 1,0), direction: QuadDirection::RIGHT } ,
+        ];
 
-        if y < 31 {
-            vxs.push((x, y + 1, z));
-        } else {
-            quad_directions.push(QuadDirection::RIGHT);
-        }
+        for offset_and_direction in offset_and_directions {
+            let neighbour_voxel_location = center_voxel + offset_and_direction.offset;
+            let neighbour_voxel = chunk.generate_voxel_in_localspace(&neighbour_voxel_location);
 
-        if z > 0 {
-            vxs.push((x, y, z - 1));
-        } else {
-            quad_directions.push(QuadDirection::BOTTOM);
-        }
+            let mut add_face = || voxel_quads.push(generate_voxel_quad(offset_and_direction.direction.clone(), x, y, z));
 
-        if z < 31 {
-            vxs.push((x, y, z + 1));
-        } else {
-            quad_directions.push(QuadDirection::TOP);
-        }
-
-        for quad_direction in quad_directions.into_iter() {
-            voxel_quads.push(generate_voxel_quad(quad_direction, x, y, z))
-        }
-
-        for (_, vx) in vxs.iter().enumerate() {
-            if chunk.get_voxel(vx.0, vx.1, vx.2).solid {
-                let vx_index = xyz_to_voxel_index(vx.0, vx.1, vx.2);
-                if !visited.contains(&vx_index) {
-                    visited.push(vx_index.clone());
-                    queue.push(vx.clone());
+            // Height OOB
+            if neighbour_voxel_location.z == 31 {
+                if offset_and_direction.direction == QuadDirection::TOP {
+                    add_face();
                 }
-            } else {
-                // Fill in a wall
-                let mut quad_directions_2 = Vec::new();
+                continue;
+            }
 
-                if vx.0 < x {
-                    quad_directions_2.push(QuadDirection::FRONT)
-                } else if vx.0 > x {
-                    quad_directions_2.push(QuadDirection::BACK)
-                } else if vx.1 < y {
-                    quad_directions_2.push(QuadDirection::LEFT)
-                } else if vx.1 > y {
-                    quad_directions_2.push(QuadDirection::RIGHT)
-                } else if vx.2 < z {
-                    quad_directions_2.push(QuadDirection::BOTTOM)
-                } else if vx.2 > z {
-                    quad_directions_2.push(QuadDirection::TOP)
-                };
-
-                for quad_direction in quad_directions_2.into_iter() {
-                    voxel_quads.push(generate_voxel_quad(quad_direction, x, y, z));
-                }
+            if !neighbour_voxel.solid {
+                add_face();
+                continue;
             }
         }
     }
 
+    println!("VOxel Quads size {}", voxel_quads.len());
+
     ChunkMeshGenResult {
-        visited,
-        voxel_quads
+        voxel_quads,
+        visited: Vec::new(),
     }
 }
 
-fn xyz_to_voxel_index(x: usize, y: usize, z: usize) -> usize {
-    x + (y * CHUNK_SIZE_X) + (z * CHUNK_SIZE_X * CHUNK_SIZE_Y)
-}
-
-fn generate_voxel_quad(quad_direction: QuadDirection, x: usize, y: usize, z: usize) -> VoxelQuad {
+fn generate_voxel_quad(quad_direction: QuadDirection, x: i32, y: i32, z: i32) -> VoxelQuad {
     VoxelQuad {
         // Note Y <=> Z swapped to work, cba to work out why
         quad: generate_quad(quad_direction, x as f32, z as f32, y as f32),

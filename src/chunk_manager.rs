@@ -1,17 +1,17 @@
 use std::ops::Range;
 use bevy::prelude::{Handle, Vec3};
 use bevy::prelude::Entity;
-use crate::{Chunk, IVec3, StandardMaterial};
-use crate::chunk::{CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z};
+use crate::{IVec3, StandardMaterial};
 
 pub struct SpawnedChunk {
-    pub chunk: IVec3,
+    pub chunk_location: IVec3,
     pub entity: Entity
 }
 
 #[derive(bevy::prelude::Component)]
 pub struct ChunkManager {
-    center: IVec3, // The chunk the player is in
+    pub chunk_size: IVec3,
+    center_chunk_location: IVec3, // The chunk the player is in
     atlas: Handle<StandardMaterial>,
 
 
@@ -23,9 +23,10 @@ pub struct ChunkManager {
 }
 
 impl ChunkManager {
-    pub fn new(center: IVec3, atlas: Handle<StandardMaterial>) -> ChunkManager {
+    pub fn new(chunk_size: IVec3, center_chunk_location: IVec3, atlas: Handle<StandardMaterial>) -> ChunkManager {
         ChunkManager {
-            center,
+            chunk_size,
+            center_chunk_location,
             atlas,
             spawned_chunks: std::sync::Mutex::new(Vec::new()),
             chunks_currently_being_spawned: std::sync::Mutex::new(Vec::new()), // The thread is doing work to spawn this chunk, once spawned it is removed from here and pushed to spawned_chunks
@@ -34,9 +35,9 @@ impl ChunkManager {
         }
     }
 
-    pub fn is_chunk_spawned(&self, chunk: &IVec3) -> bool {
+    pub fn is_chunk_spawned(&self, chunk_location: &IVec3) -> bool {
         for spawned_chunk in self.spawned_chunks.lock().unwrap().iter() {
-            if spawned_chunk.chunk == *chunk {
+            if spawned_chunk.chunk_location == *chunk_location {
                 return true
             }
         }
@@ -69,11 +70,11 @@ impl ChunkManager {
 
         let mut to_despawn = Vec::new();
         for spawned_chunk in spawned_chunks.iter() {
-            if !chunks_in_render_zone.contains(&spawned_chunk.chunk) {
+            if !chunks_in_render_zone.contains(&spawned_chunk.chunk_location) {
                 println!("Adding chunk {} {} {} to despawn list because not the same as center_chunk {} {} {}",
-                         spawned_chunk.chunk.x, spawned_chunk.chunk.y, spawned_chunk.chunk.z,
+                         spawned_chunk.chunk_location.x, spawned_chunk.chunk_location.y, spawned_chunk.chunk_location.z,
                 center_chunk.x, center_chunk.y, center_chunk.z);
-                to_despawn.push(spawned_chunk.chunk.clone());
+                to_despawn.push(spawned_chunk.chunk_location.clone());
             }
         }
 
@@ -82,18 +83,18 @@ impl ChunkManager {
 
     pub fn add_chunk_entity(&mut self, spawned_chunk: SpawnedChunk) {
         let mut chunks_currently_being_spawned = self.chunks_currently_being_spawned.lock().unwrap();
-        chunks_currently_being_spawned.retain(|v| *v != spawned_chunk.chunk);
+        chunks_currently_being_spawned.retain(|v| *v != spawned_chunk.chunk_location);
 
         self.spawned_chunks.lock().unwrap().push(spawned_chunk);
     }
 
-    pub fn despawn_chunk(&mut self, chunk: IVec3) -> std::option::Option<Entity> {
+    pub fn despawn_chunk(&mut self, chunk_location: IVec3) -> std::option::Option<Entity> {
         let mut spawned_chunks = self.spawned_chunks.lock().unwrap();
 
         // TODO if chunk is being spawned right now, find some way to cancel it, and remove from being_spawned vec
 
         for i in 0..spawned_chunks.len() {
-            if spawned_chunks.get(i).unwrap().chunk == chunk {
+            if spawned_chunks.get(i).unwrap().chunk_location == chunk_location {
                 let entity = spawned_chunks.get(i).unwrap().entity;
                 spawned_chunks.remove(i);
                 return Some(entity);
@@ -150,7 +151,7 @@ impl ChunkManager {
     }
 }
 
-pub fn get_chunk_containing_position(position: &Vec3) -> IVec3 {
+pub fn get_chunk_containing_position(position: &Vec3, chunk_size: &IVec3) -> IVec3 {
     let mut chunk_offset_x = 0;
     let mut chunk_offset_y = 0;
     let mut chunk_offset_z = 0;
@@ -167,9 +168,9 @@ pub fn get_chunk_containing_position(position: &Vec3) -> IVec3 {
         chunk_offset_z = -1;
     }
 
-    IVec3::new((position.x / CHUNK_SIZE_X as f32) as i32 + chunk_offset_x,
+    IVec3::new((position.x / chunk_size.x as f32) as i32 + chunk_offset_x,
                0,//(position.y / CHUNK_SIZE_Y as f32) as i32 + chunk_offset_y,
-               (position.z / CHUNK_SIZE_Z as f32) as i32 + chunk_offset_z)
+               (position.z / chunk_size.z as f32) as i32 + chunk_offset_z)
 }
 
 fn get_rings(layers: &Vec<i32>, inds: &Vec<(i32, i32)>) -> Vec<(i32, i32)> {

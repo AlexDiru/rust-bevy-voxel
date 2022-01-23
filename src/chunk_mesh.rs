@@ -1,22 +1,11 @@
+use bevy::math::IVec3;
 use bevy::prelude::Mesh;
 use crate::chunk_vertexes::{generate_chunk_quad_groups, QuadDirection, VoxelQuads};
 use crate::{Chunk};
 
-pub fn generate_mesh(chunk_x: i32, chunk_y: i32, chunk_z: i32) -> Vec<Mesh> {
-    let mut meshes = Vec::new();
-    let chunk = &Chunk::noise(chunk_x, chunk_y, chunk_z);
-
-    if chunk.is_empty {
-        return Vec::new();
-    }
-
+pub fn generate_mesh(chunk: &Chunk) -> Mesh {
     let voxel_quad_groups = generate_chunk_quad_groups(&chunk);
-
-    for voxel_quads in voxel_quad_groups.iter() {
-        meshes.push(create_chunk_mesh(voxel_quads));
-    }
-
-    meshes
+    create_chunk_mesh(&voxel_quad_groups)
 }
 
 fn create_chunk_mesh(quads: &VoxelQuads) -> Mesh {

@@ -1,3 +1,4 @@
+mod chunk_utils;
 mod map;
 mod point;
 mod chunk;
@@ -12,7 +13,6 @@ extern crate exec_time;
 
 use bevy::prelude::*;
 use bevy::render::camera::PerspectiveProjection;
-use bevy::render::options::WgpuFeatures;
 use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
 use crate::chunk::{Chunk};
 use crate::chunk_manager::{ChunkManager, get_chunk_containing_position};
@@ -45,15 +45,19 @@ fn init(
             ..Default::default()
         });
 
+    let chunk_size = IVec3::new(32, 32, 32);
+    let center_chunk_location = get_chunk_containing_position(&start_transform.translation, &chunk_size);
+    let atlas = materials.add(StandardMaterial {
+        base_color_texture: Some(asset_server.load("atlas.png").clone()),
+        unlit: true,
+        ..Default::default()
+    });
 
     commands.spawn().insert(ChunkManager::new(
-        get_chunk_containing_position(&start_transform.translation),
-            materials.add(StandardMaterial {
-                base_color_texture: Some(asset_server.load("atlas.png").clone()),
-                unlit: true,
-                ..Default::default()
-            })
-        ));
+        chunk_size,
+        center_chunk_location,
+        atlas
+    ));
 }
 
 fn camera_debug_print(camera_query: Query<&FlyCamera>,) {
