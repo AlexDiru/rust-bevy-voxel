@@ -1,6 +1,4 @@
 mod chunk_utils;
-mod map;
-mod point;
 mod chunk;
 mod chunk_vertexes;
 mod chunk_manager;
@@ -23,7 +21,7 @@ fn init(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let start_transform = Transform::from_translation(Vec3::new(32.0, 30.0, 32.0));
+    let start_transform = Transform::from_translation(Vec3::new(32.0, 64.0, 32.0));
 
     commands
         .spawn()
@@ -45,7 +43,7 @@ fn init(
             ..Default::default()
         });
 
-    let chunk_size = IVec3::new(32, 32, 32);
+    let chunk_size = IVec3::new(32, 64, 32);
     let center_chunk_location = get_chunk_containing_position(&start_transform.translation, &chunk_size);
     let atlas = materials.add(StandardMaterial {
         base_color_texture: Some(asset_server.load("atlas.png").clone()),

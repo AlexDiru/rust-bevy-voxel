@@ -72,7 +72,7 @@ impl Chunk {
     }
 
     pub fn get_voxel(&self, xyz: &IVec3) -> &Voxel {
-        return &self.voxels[xyz_to_voxel_index(xyz.x as usize, xyz.y as usize, xyz.z as usize)];
+        return &self.voxels[xyz_to_voxel_index(&xyz, &self.size)];
     }
 }
 
@@ -99,7 +99,7 @@ fn generate_voxel_at_xyz(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3)
    // let chance = (flat_chunk().calculate_solid_probability)(global_xyz.x as f32, global_xyz.y as f32, global_xyz.z as f32);
 
     // The chance of the voxel being solid, increases the lower y is
-    let chance = (global_xyz.y as f64 / 32.0);
+    let chance = (((global_xyz.y - 8) as f64).log10() / (64.0_f64).log10());
 
     let solid = val as f64 > chance;
 

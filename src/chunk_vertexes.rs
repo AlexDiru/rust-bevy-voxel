@@ -82,7 +82,7 @@ struct OffsetAndDirection {
 fn generate_chunk_mesh_from_voxel(chunk: &Chunk) -> ChunkMeshGenResult {
     let mut voxel_quads: Vec<VoxelQuad> = Vec::new();
 
-    for n in 0..(32 * 32 * 32) {
+    for n in 0..((chunk.size.x * chunk.size.y * chunk.size.z) as usize) {
         if !chunk.voxels[n].solid {
             continue
         }
@@ -108,7 +108,7 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk) -> ChunkMeshGenResult {
             let mut add_face = || voxel_quads.push(generate_voxel_quad(offset_and_direction.direction.clone(), x, y, z));
 
             // Height OOB - since no chunks above or below
-            if neighbour_voxel_location.y == 32 {
+            if neighbour_voxel_location.y == chunk.size.y {
                 if offset_and_direction.direction == QuadDirection::TOP {
                     add_face();
                 }

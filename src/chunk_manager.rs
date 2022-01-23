@@ -30,7 +30,7 @@ impl ChunkManager {
             atlas,
             spawned_chunks: std::sync::Mutex::new(Vec::new()),
             chunks_currently_being_spawned: std::sync::Mutex::new(Vec::new()), // The thread is doing work to spawn this chunk, once spawned it is removed from here and pushed to spawned_chunks
-            chunk_render_distance: 3,
+            chunk_render_distance: 8,
             chunk_render_distance_y_range: 0..1,
         }
     }

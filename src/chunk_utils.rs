@@ -1,15 +1,7 @@
 use crate::IVec3;
 
-pub const CHUNK_SIZE_X: usize = 32;
-pub const CHUNK_SIZE_Y: usize = 32;
-pub const CHUNK_SIZE_Z: usize = 32;
-
-pub const CHUNK_SIZE_X_I32: i32 = CHUNK_SIZE_X as i32;
-pub const CHUNK_SIZE_Y_I32: i32 = CHUNK_SIZE_Y as i32;
-pub(crate) const CHUNK_SIZE_Z_I32: i32 = CHUNK_SIZE_Z as i32;
-
-pub fn xyz_to_voxel_index(x: usize, y: usize, z: usize) -> usize {
-    x + (y * CHUNK_SIZE_X) + (z * CHUNK_SIZE_X * CHUNK_SIZE_Y)
+pub fn xyz_to_voxel_index(xyz: &IVec3, chunk_size: &IVec3) -> usize {
+    (xyz.x + (xyz.y * chunk_size.x) + (xyz.z * chunk_size.x * chunk_size.y)) as usize
 }
 
 pub fn voxel_index_to_xyz(idx: i32, chunk_size: &IVec3) -> IVec3 {
