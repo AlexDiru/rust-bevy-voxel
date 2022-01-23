@@ -104,12 +104,12 @@ pub fn render_voxel_mesh(
 
             let chunk_transform = chunk.get_transform();
 
-                pbr_bundles.push(PbrBundle {
-                    mesh: meshes.add(voxel_mesh).clone(),
-                    material: chunk_manager.clone_material(),
-                    transform: chunk_transform,
-                    ..Default::default()
-                });
+            pbr_bundles.push(PbrBundle {
+                mesh: meshes.add(voxel_mesh).clone(),
+                material: chunk_manager.clone_material(),
+                transform: chunk_transform,
+                ..Default::default()
+            });
 
             for pbr_bundle in pbr_bundles.into_iter() {
                 let entity = commands.spawn_bundle(pbr_bundle).id();

@@ -96,18 +96,12 @@ fn generate_voxel_at_xyz(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3)
     // Normalise val from -1 to 1, to 0 to 1
     val = (val + 1.0) / 2.0;
 
-    let chance = 0.5;//(flat_chunk().calculate_solid_probability)(x as f32, y as f32, (z as i32 + z_offset) as f32);
+   // let chance = (flat_chunk().calculate_solid_probability)(global_xyz.x as f32, global_xyz.y as f32, global_xyz.z as f32);
 
     // The chance of the voxel being solid, increases the lower y is
-    //let chance = (z as f64 / 16.0);
+    let chance = (global_xyz.y as f64 / 32.0);
 
-   //let solid = val as f32 <= chance;
-
-    let mut solid = ((global_xyz.x) % 4) != 0;
-
-    if global_xyz.y == 31 {
-       solid = true;
-    }
+    let solid = val as f64 > chance;
 
     Voxel {
         solid,
@@ -115,5 +109,32 @@ fn generate_voxel_at_xyz(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3)
 }
 
 
+#[cfg(test)]
+mod tests {
+    use opensimplex_noise_rs::OpenSimplexNoise;
+    use crate::chunk::generate_voxel_at_xyz;
+    use crate::chunk_utils::voxel_index_to_xyz;
+    use crate::IVec3;
+
+    #[test]
+    fn generate_voxel_at_xyz_test() {
+        let noise_generator = OpenSimplexNoise::new(Some(883_279_212_983_182_319));
+        let actual = generate_voxel_at_xyz(&noise_generator, &IVec3::new(0, 0, 0));
+        assert_eq!(generate_voxel_at_xyz(&noise_generator, &IVec3::new(0, 0, 0)), actual);
+
+        let noise_generator2 = OpenSimplexNoise::new(Some(883_279_212_983_182_319));
+        assert_eq!(generate_voxel_at_xyz(&noise_generator2, &IVec3::new(0, 0, 0)), actual);
+
+        for x in -3..67 {
+            for y in -3..67 {
+                for z in -3..67 {
+                    assert_eq!(
+                        generate_voxel_at_xyz(&noise_generator, &IVec3::new(x, y, z)),
+                        generate_voxel_at_xyz(&noise_generator2, &IVec3::new(x, y, z)));
+                }
+            }
+        }
+    }
+}
 
 

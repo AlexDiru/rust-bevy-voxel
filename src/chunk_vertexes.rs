@@ -95,10 +95,10 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk) -> ChunkMeshGenResult {
         let offset_and_directions : [OffsetAndDirection; 6] = [
             OffsetAndDirection { offset: IVec3::new(-1, 0, 0), direction: QuadDirection::FRONT } ,
             OffsetAndDirection { offset: IVec3::new(1, 0, 0), direction: QuadDirection::BACK } ,
-            OffsetAndDirection { offset: IVec3::new(0, 0, -1), direction: QuadDirection::BOTTOM } ,
-            OffsetAndDirection { offset: IVec3::new(0, 0, 1), direction: QuadDirection::TOP } ,
-            OffsetAndDirection { offset: IVec3::new(0, -1,  0),direction:  QuadDirection::LEFT } ,
-            OffsetAndDirection { offset: IVec3::new(0, 1,0), direction: QuadDirection::RIGHT } ,
+            OffsetAndDirection { offset: IVec3::new(0, 0, -1), direction: QuadDirection::LEFT } ,
+            OffsetAndDirection { offset: IVec3::new(0, 0, 1), direction: QuadDirection::RIGHT } ,
+            OffsetAndDirection { offset: IVec3::new(0, -1,  0),direction:  QuadDirection::BOTTOM } ,
+            OffsetAndDirection { offset: IVec3::new(0, 1,0), direction: QuadDirection::TOP } ,
         ];
 
         for offset_and_direction in offset_and_directions {
@@ -107,9 +107,14 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk) -> ChunkMeshGenResult {
 
             let mut add_face = || voxel_quads.push(generate_voxel_quad(offset_and_direction.direction.clone(), x, y, z));
 
-            // Height OOB
-            if neighbour_voxel_location.z == 31 {
+            // Height OOB - since no chunks above or below
+            if neighbour_voxel_location.y == 32 {
                 if offset_and_direction.direction == QuadDirection::TOP {
+                    add_face();
+                }
+                continue;
+            } else if neighbour_voxel_location.y == -1 {
+                if offset_and_direction.direction == QuadDirection::BOTTOM {
                     add_face();
                 }
                 continue;
@@ -133,10 +138,10 @@ fn generate_chunk_mesh_from_voxel(chunk: &Chunk) -> ChunkMeshGenResult {
 fn generate_voxel_quad(quad_direction: QuadDirection, x: i32, y: i32, z: i32) -> VoxelQuad {
     VoxelQuad {
         // Note Y <=> Z swapped to work, cba to work out why
-        quad: generate_quad(quad_direction, x as f32, z as f32, y as f32),
+        quad: generate_quad(quad_direction, x as f32, y as f32, z as f32),
         x,
-        y: z,
-        z: y,
+        y,
+        z,
     }
 }
 
