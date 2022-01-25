@@ -19,6 +19,7 @@ use crate::chunk_mesh::generate_mesh;
 fn init(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
 ) {
     let start_transform = Transform::from_translation(Vec3::new(32.0, 64.0, 32.0));

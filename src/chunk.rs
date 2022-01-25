@@ -192,7 +192,6 @@ fn generate_voxel_at_xyz(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3,
         QUARRY => {
             Voxel { solid: mc(noise_generator, global_xyz, 7, 64, 0.03) }
         }
-
     }
 }
 

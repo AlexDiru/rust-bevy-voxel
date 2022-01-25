@@ -15,7 +15,6 @@ pub fn chunk_spawner(
     mut commands: Commands,
     camera_query: Query<&Transform, With<FlyCamera>>,
     mut chunk_manager_query: Query<&mut ChunkManager>,
-    input: Res<Input<KeyCode>>,
     thread_pool: Res<AsyncComputeTaskPool>,
 ) {
     let camera_transform = camera_query.single();
@@ -88,7 +87,6 @@ pub fn render_voxel_mesh(
     mut commands: Commands,
     mut transform_tasks: Query<(Entity, &mut Task<RenderChunkMeshesTask>)>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut chunk_manager_query: Query<&mut ChunkManager>) {
 
     let mut chunk_manager = chunk_manager_query.single_mut();
@@ -119,65 +117,8 @@ pub fn render_voxel_mesh(
                 });
             }
 
-            // Water
-
-            // let water_pos = chunk_transform.translation + Transform::from_xyz(CHUNK_SIZE as f32 * 0.5, 9.4, CHUNK_SIZE as f32 * 0.5).translation;
-            //
-            // commands.spawn_bundle(PbrBundle {
-            //     mesh: meshes.add(Mesh::from(crate::shape::Box::new(CHUNK_SIZE as f32, 1.0, CHUNK_SIZE as f32))),
-            //     material: materials.add(StandardMaterial {
-            //         base_color: Color::rgba(0.0, 0.0, 0.8, 0.85),
-            //         ..Default::default()
-            //     }),
-            //     visible: Visible { is_visible: true, is_transparent: true, },
-            //     transform: Transform::from_translation(water_pos),
-            //     ..Default::default()
-            // });
-            //
-            // println!("Chunk {}, {}, {} loaded", chunk_x, chunk_y, chunk_z);
-
             commands.entity(entity).remove::<Task<RenderChunkMeshesTask>>();
         }
     }
 
 }
-
-//
-// use bevy::DefaultPlugins;
-// use bevy::pbr::PbrBundle;
-// use bevy::prelude::{App, Assets, Commands, Entity, Mesh, Query, Res, ResMut};
-// use bevy::prelude::shape::Cube;
-// use bevy::prelude::IntoSystem;
-// use bevy::tasks::{AsyncComputeTaskPool, Task};
-// use futures_lite::future;
-//
-// fn load_meshes(
-//     mut commands: Commands,
-//     thread_pool: Res<AsyncComputeTaskPool>,
-// ) {
-//     for _ in 0..10 {
-//         let task = thread_pool.spawn(async move {
-//             println!("Starting work on another thread");
-//             // Build expensive mesh here
-//             let mesh = Mesh::from(Cube::new(1.0));
-//             println!("Finished work on another thread");
-//             mesh
-//         });
-//         commands.spawn().insert(task);
-//     }
-// }
-//
-// fn poll_mesh_tasks(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut tasks: Query<(Entity, &mut Task<Mesh>)>) {
-//     for (entity, mut task) in tasks.iter_mut() {
-//         if let Some(mesh) = future::block_on(future::poll_once(&mut *task)) {
-//             let mesh_handle = meshes.add(mesh);
-//             // Remove the Task<Mesh> from the entity and attach a PbrBundle to it
-//             commands.entity(entity)
-//                 .remove::<Task<Mesh>>()
-//                 .insert_bundle(PbrBundle {
-//                     mesh: mesh_handle,
-//                     ..Default::default()
-//                 });
-//         }
-//     }
-// }
