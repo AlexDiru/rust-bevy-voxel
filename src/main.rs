@@ -5,6 +5,7 @@ mod chunk_manager;
 mod voxel;
 mod chunk_mesh;
 mod systems;
+mod biome;
 
 #[macro_use]
 extern crate exec_time;

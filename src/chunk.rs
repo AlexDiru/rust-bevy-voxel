@@ -2,7 +2,8 @@ use std::hash::Hash;
 use std::ops::Div;
 use bevy::math::{IVec3, Vec3};
 use opensimplex_noise_rs::OpenSimplexNoise;
-use crate::chunk::Biome::{FLAT, PERLIN_MOUNTAINS, QUARRY};
+use crate::biome::{BiomeStrength, BiomeType, get_random_biome};
+use crate::biome::BiomeType::{FLAT, PERLIN_MOUNTAINS, QUARRY};
 use crate::chunk_utils::{voxel_index_to_xyz, xyz_to_voxel_index};
 use crate::Transform;
 use crate::voxel::Voxel;
@@ -79,13 +80,7 @@ impl Chunk {
     }
 }
 
-enum Biome {
-    PERLIN_MOUNTAINS,
-    FLAT,
-    QUARRY,
-}
-
-fn get_biome(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, chunk_size: &IVec3) -> Biome {
+fn get_biome(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, chunk_size: &IVec3) -> [BiomeStrength; 3] {
     // let chunk_x = (global_xyz.x as f32/ chunk_size.x as f32).floor() as f64;
     // let chunk_z = (global_xyz.z as f32 / chunk_size.z as f32).floor() as f64;
 
@@ -93,41 +88,16 @@ fn get_biome(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, chunk_size:
     // Normalise val from -1 to 1, to 0 to 1
     let normalised_noise = (noise + 1.0) / 2.0;
 
-    if normalised_noise < 0.3333 {
-        return PERLIN_MOUNTAINS
-    } else if normalised_noise < 0.6666 {
-        return FLAT
-    }
-
-    return QUARRY
+    return get_random_biome(normalised_noise);
 }
 
-fn perlin_mountains(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, scale: f64) -> bool {
-
-    let mut val = noise_generator.eval_3d(
-        (global_xyz.x) as f64 * scale,
-        (global_xyz.y) as f64 * scale,
-        (global_xyz.z) as f64 * scale);
-
-    // Normalise val from -1 to 1, to 0 to 1
-    val = (val + 1.0) / 2.0;
-
+fn perlin_mountains(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3) -> f64 {
     // The chance of the voxel being solid, increases the lower y is
     let chance = ((global_xyz.y) as f64).log10() / (64.0_f64).log10();
-
-    let solid = val as f64 > chance;
-    solid
+    chance
+    //let solid = val as f64 > chance;
+    //solid
 }
-
-fn solid_mountains(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, chunk_size: &IVec3) -> bool {
-    for y in (global_xyz.y..chunk_size.y).rev() {
-        if perlin_mountains(noise_generator, &IVec3::new(global_xyz.x, y, global_xyz.z), 0.05) {
-            return true
-        }
-    }
-    return false
-}
-
 
 fn mc(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, min_height: i32, max_height: i32, scale: f64) -> bool {
     if global_xyz.y <= min_height {
@@ -178,21 +148,40 @@ fn generate_voxel_at_xyz(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3,
     // Chunk 1,1 xyz = 32..64
     // Chunk 10,10 xyz = 320..352
 
-    let biome = get_biome(noise_generator, global_xyz, chunk_size);
+    let biome_strengths = get_biome(noise_generator, global_xyz, chunk_size);
+    // TODO
+    // Make generation functions return a chance of solid
+    let biome = biome_strengths[0].biomeType;
 
-    match biome {
-        PERLIN_MOUNTAINS => {
-            Voxel { solid: perlin_mountains(noise_generator, global_xyz, 0.1) }
-        },
-        FLAT => {
-            Voxel {
-                solid: flat(noise_generator, global_xyz, 8, 24, 0.07),
+    let scale = 0.01;
+    let mut val = noise_generator.eval_3d(
+        (global_xyz.x) as f64 * scale,
+        (global_xyz.y) as f64 * scale,
+        (global_xyz.z) as f64 * scale);
+
+    // Normalise val from -1 to 1, to 0 to 1
+    val = (val + 1.0) / 2.0;
+
+    let mut voxels: [Voxel; 3] = [ Voxel { solid: false },Voxel { solid: false },Voxel { solid: false } ];
+    for i in 0..biome_strengths.len() {
+        voxels[i] = match biome {
+            PERLIN_MOUNTAINS => {
+                let chance = perlin_mountains(noise_generator, global_xyz);
+                let solid = val as f64 > chance;
+                Voxel { solid }
+            },
+            FLAT => {
+                Voxel {
+                    solid: flat(noise_generator, global_xyz, 8, 24, 0.07),
+                }
+            },
+            QUARRY => {
+                Voxel { solid: mc(noise_generator, global_xyz, 7, 64, 0.03) }
             }
-        },
-        QUARRY => {
-            Voxel { solid: mc(noise_generator, global_xyz, 7, 64, 0.03) }
-        }
+        };
     }
+
+    voxels[0]
 }
 
 
