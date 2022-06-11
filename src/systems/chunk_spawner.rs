@@ -1,15 +1,10 @@
 use bevy::input::Input;
 use bevy::math::IVec3;
-use bevy::prelude::{Assets, Commands, Entity, KeyCode, Mesh, PbrBundle, Query, Res, ResMut, Transform, With};
+use bevy::prelude::{Assets, Commands, Entity, IntoSystem, KeyCode, Mesh, PbrBundle, Query, Res, ResMut, Transform, With};
 use bevy::tasks::{AsyncComputeTaskPool, Task};
-use bevy_fly_camera::FlyCamera;
 use futures_lite::future;
-use crate::{Chunk, ChunkManager, generate_mesh, StandardMaterial, Vec3};
+use crate::{Chunk, ChunkManager, FlyCamera, generate_mesh, StandardMaterial, Vec3};
 use crate::chunk_manager::{get_chunk_containing_position, SpawnedChunk};
-
-pub fn chunk_despawner() {
-
-}
 
 pub fn chunk_spawner(
     mut commands: Commands,
@@ -41,7 +36,7 @@ pub fn chunk_spawner(
 
         let chunk_size = chunk_manager.chunk_size.clone();
 
-        let task  = thread_pool.spawn(async move {
+        let task = thread_pool.spawn(async move {
             let chunk = Chunk::noise(chunk_size, chunk_to_spawn.clone());
             let mesh = generate_mesh(&chunk);
 
