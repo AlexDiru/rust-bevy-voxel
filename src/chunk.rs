@@ -1,9 +1,7 @@
-use std::hash::Hash;
-use std::ops::Div;
 use bevy::math::{IVec3, Vec3};
 use opensimplex_noise_rs::OpenSimplexNoise;
-use crate::biome::{BiomeStrength, BiomeType, get_random_biome};
-use crate::biome::BiomeType::{FLAT, PERLIN_MOUNTAINS, QUARRY};
+use crate::biome::{BiomeStrength, get_random_biome};
+use crate::biome::BiomeType::{Flat, PerlinMountains, Quarry};
 use crate::chunk_utils::{voxel_index_to_xyz, xyz_to_voxel_index};
 use crate::Transform;
 use crate::voxel::Voxel;
@@ -22,7 +20,7 @@ pub struct ChunkGenerationAttributes {
 
 fn sparse_chunk() -> ChunkGenerationAttributes {
     ChunkGenerationAttributes {
-        calculate_solid_probability: |x: f32, y: f32, z: f32| -> f32 {
+        calculate_solid_probability: |_x: f32, _y: f32, _z: f32| -> f32 {
             return 0.3;
         }
     }
@@ -30,7 +28,7 @@ fn sparse_chunk() -> ChunkGenerationAttributes {
 
 fn flat_chunk() -> ChunkGenerationAttributes {
     ChunkGenerationAttributes {
-        calculate_solid_probability: |x: f32, y: f32, z: f32| -> f32 {
+        calculate_solid_probability: |_x: f32, _y: f32, z: f32| -> f32 {
             let c = 28.0; // The higher c is, the higher the probability that the higher voxels are solid
             1.0 - (z / c)
         }
@@ -80,7 +78,7 @@ impl Chunk {
     }
 }
 
-fn get_biome(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, chunk_size: &IVec3) -> [BiomeStrength; 3] {
+fn get_biome(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, _chunk_size: &IVec3) -> [BiomeStrength; 3] {
     // let chunk_x = (global_xyz.x as f32/ chunk_size.x as f32).floor() as f64;
     // let chunk_z = (global_xyz.z as f32 / chunk_size.z as f32).floor() as f64;
 
@@ -91,7 +89,7 @@ fn get_biome(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3, chunk_size:
     return get_random_biome(normalised_noise);
 }
 
-fn perlin_mountains(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3) -> f64 {
+fn perlin_mountains(_noise_generator: &OpenSimplexNoise, global_xyz: &IVec3) -> f64 {
     // The chance of the voxel being solid, increases the lower y is
     let chance = ((global_xyz.y) as f64).log10() / (64.0_f64).log10();
     chance
@@ -151,7 +149,7 @@ fn generate_voxel_at_xyz(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3,
     let biome_strengths = get_biome(noise_generator, global_xyz, chunk_size);
     // TODO
     // Make generation functions return a chance of solid
-    let biome = biome_strengths[0].biomeType;
+    let biome = biome_strengths[0].biome_type;
 
     let scale = 0.01;
     let mut val = noise_generator.eval_3d(
@@ -165,17 +163,17 @@ fn generate_voxel_at_xyz(noise_generator: &OpenSimplexNoise, global_xyz: &IVec3,
     let mut voxels: [Voxel; 3] = [ Voxel { solid: false },Voxel { solid: false },Voxel { solid: false } ];
     for i in 0..biome_strengths.len() {
         voxels[i] = match biome {
-            PERLIN_MOUNTAINS => {
+            PerlinMountains => {
                 let chance = perlin_mountains(noise_generator, global_xyz);
                 let solid = val as f64 > chance;
                 Voxel { solid }
             },
-            FLAT => {
+            Flat => {
                 Voxel {
                     solid: flat(noise_generator, global_xyz, 8, 24, 0.07),
                 }
             },
-            QUARRY => {
+            Quarry => {
                 Voxel { solid: mc(noise_generator, global_xyz, 7, 64, 0.03) }
             }
         };

@@ -1,12 +1,23 @@
-use bevy::input::Input;
+use bevy::app::App;
 use bevy::math::IVec3;
-use bevy::prelude::{Assets, Commands, Entity, IntoSystem, KeyCode, Mesh, PbrBundle, Query, Res, ResMut, Transform, With};
+use bevy::prelude::{Assets, Commands, Entity, Mesh, PbrBundle, Plugin, Query, Res, ResMut, Transform, With};
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
-use crate::{Chunk, ChunkManager, FlyCamera, generate_mesh, StandardMaterial, Vec3};
+use crate::{Chunk, ChunkManager, FlyCamera, generate_mesh};
 use crate::chunk_manager::{get_chunk_containing_position, SpawnedChunk};
 
-pub fn chunk_spawner(
+pub struct ChunkSpawnerPlugin;
+
+impl Plugin for ChunkSpawnerPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_system(chunk_spawner)
+            .add_system(render_voxel_mesh)
+            .add_system(despawn_chunk_processor);
+    }
+}
+
+fn chunk_spawner(
     mut commands: Commands,
     camera_query: Query<&Transform, With<FlyCamera>>,
     mut chunk_manager_query: Query<&mut ChunkManager>,
@@ -59,7 +70,7 @@ pub struct DespawnChunkTask {
     chunk: IVec3,
 }
 
-pub fn despawn_chunk_processor(
+fn despawn_chunk_processor(
     mut commands: Commands,
     mut despawn_chunk_tasks: Query<(Entity, &mut Task<DespawnChunkTask>)>,
     mut chunk_manager_query: Query<&mut ChunkManager>
@@ -67,7 +78,7 @@ pub fn despawn_chunk_processor(
     let mut chunk_manager = chunk_manager_query.single_mut();
     for (entity, mut task) in despawn_chunk_tasks.iter_mut() {
         if let Some(despawn_chunk_task) = future::block_on(future::poll_once(&mut *task)) {
-            println!("Despawning chunk {} {} {}", despawn_chunk_task.chunk.x, despawn_chunk_task.chunk.y, despawn_chunk_task.chunk.z);
+            println!("Despawning chunk_spawner {} {} {}", despawn_chunk_task.chunk.x, despawn_chunk_task.chunk.y, despawn_chunk_task.chunk.z);
             let entity_to_despawn = chunk_manager.despawn_chunk(despawn_chunk_task.chunk);
 
             if entity_to_despawn.is_some() {
@@ -78,7 +89,7 @@ pub fn despawn_chunk_processor(
     }
 }
 
-pub fn render_voxel_mesh(
+fn render_voxel_mesh(
     mut commands: Commands,
     mut transform_tasks: Query<(Entity, &mut Task<RenderChunkMeshesTask>)>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -91,7 +102,7 @@ pub fn render_voxel_mesh(
             let chunk = render_chunk_mesh_task.chunk;
             let voxel_mesh = render_chunk_mesh_task.mesh;
 
-            println!("Spawning chunk {} {} {}", chunk.location.x, chunk.location.y, chunk.location.z);
+            println!("Spawning chunk_spawner {} {} {}", chunk.location.x, chunk.location.y, chunk.location.z);
 
             let mut pbr_bundles = Vec::new();
 

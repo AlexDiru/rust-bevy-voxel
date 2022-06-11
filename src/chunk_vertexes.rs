@@ -1,5 +1,5 @@
 use crate::{Chunk, IVec3};
-use crate::chunk_utils::{voxel_index_to_xyz, xyz_to_voxel_index};
+use crate::chunk_utils::{voxel_index_to_xyz};
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum QuadDirection {

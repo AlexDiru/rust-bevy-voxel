@@ -11,7 +11,7 @@ pub struct SpawnedChunk {
 #[derive(bevy::prelude::Component)]
 pub struct ChunkManager {
     pub chunk_size: IVec3,
-    center_chunk_location: IVec3, // The chunk the player is in
+    center_chunk_location: IVec3, // The chunk_spawner the player is in
     atlas: Handle<StandardMaterial>,
 
 
@@ -29,7 +29,7 @@ impl ChunkManager {
             center_chunk_location,
             atlas,
             spawned_chunks: std::sync::Mutex::new(Vec::new()),
-            chunks_currently_being_spawned: std::sync::Mutex::new(Vec::new()), // The thread is doing work to spawn this chunk, once spawned it is removed from here and pushed to spawned_chunks
+            chunks_currently_being_spawned: std::sync::Mutex::new(Vec::new()), // The thread is doing work to spawn this chunk_spawner, once spawned it is removed from here and pushed to spawned_chunks
             chunk_render_distance: 8,
             chunk_render_distance_y_range: 0..1,
         }
@@ -64,14 +64,14 @@ impl ChunkManager {
     }
 
     pub fn chunks_to_despawn(&mut self, center_chunk: IVec3) -> Vec<IVec3> {
-        let mut chunks_in_render_zone = self.chunks_in_render_zone_worldspace(&center_chunk);
+        let chunks_in_render_zone = self.chunks_in_render_zone_worldspace(&center_chunk);
 
         let spawned_chunks = self.spawned_chunks.lock().unwrap();
 
         let mut to_despawn = Vec::new();
         for spawned_chunk in spawned_chunks.iter() {
             if !chunks_in_render_zone.contains(&spawned_chunk.chunk_location) {
-                println!("Adding chunk {} {} {} to despawn list because not the same as center_chunk {} {} {}",
+                println!("Adding chunk_spawner {} {} {} to despawn list because not the same as center_chunk {} {} {}",
                          spawned_chunk.chunk_location.x, spawned_chunk.chunk_location.y, spawned_chunk.chunk_location.z,
                 center_chunk.x, center_chunk.y, center_chunk.z);
                 to_despawn.push(spawned_chunk.chunk_location.clone());
@@ -91,7 +91,7 @@ impl ChunkManager {
     pub fn despawn_chunk(&mut self, chunk_location: IVec3) -> std::option::Option<Entity> {
         let mut spawned_chunks = self.spawned_chunks.lock().unwrap();
 
-        // TODO if chunk is being spawned right now, find some way to cancel it, and remove from being_spawned vec
+        // TODO if chunk_spawner is being spawned right now, find some way to cancel it, and remove from being_spawned vec
 
         for i in 0..spawned_chunks.len() {
             if spawned_chunks.get(i).unwrap().chunk_location == chunk_location {
@@ -129,7 +129,7 @@ impl ChunkManager {
 
         let mut chunks_in_render_zone_worldspace = Vec::new();
 
-        for mut chunk in chunks_in_render_zone {
+        for chunk in chunks_in_render_zone {
             chunks_in_render_zone_worldspace.push(chunk + *center_chunk);
         }
 
@@ -137,7 +137,7 @@ impl ChunkManager {
     }
 
     pub fn request_chunks_to_spawn(&mut self, center_chunk: IVec3) -> Vec<IVec3> {
-        let mut chunks_in_render_zone = self.chunks_in_render_zone_worldspace(&center_chunk);
+        let chunks_in_render_zone = self.chunks_in_render_zone_worldspace(&center_chunk);
 
         let mut chunks_to_spawn = Vec::new();
 
@@ -153,16 +153,16 @@ impl ChunkManager {
 
 pub fn get_chunk_containing_position(position: &Vec3, chunk_size: &IVec3) -> IVec3 {
     let mut chunk_offset_x = 0;
-    let mut chunk_offset_y = 0;
+    //let mut chunk_offset_y = 0;
     let mut chunk_offset_z = 0;
 
     if position.x < 0.0 {
         chunk_offset_x = -1;
     }
 
-    if position.y < 0.0 {
-        chunk_offset_y = -1;
-    }
+    // if position.y < 0.0 {
+    //     chunk_offset_y = -1;
+    // }
 
     if position.z < 0.0 {
         chunk_offset_z = -1;

@@ -1,4 +1,3 @@
-use bevy::math::IVec3;
 use bevy::prelude::Mesh;
 use crate::chunk_vertexes::{generate_chunk_quad_groups, QuadDirection, VoxelQuads};
 use crate::{Chunk};
@@ -17,7 +16,7 @@ fn create_chunk_mesh(quads: &VoxelQuads) -> Mesh {
 
     for voxel_quad in quads {
 
-        let mut texture_atlas_index = 0;
+        let texture_atlas_index : i32;
         let height = voxel_quad.y as f32;
 
         if height >= 24.0 {

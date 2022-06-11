@@ -1,5 +1,4 @@
 mod chunk_utils;
-mod chunk;
 mod chunk_vertexes;
 mod chunk_manager;
 mod voxel;
@@ -7,6 +6,8 @@ mod chunk_mesh;
 mod systems;
 mod biome;
 mod flycamerafork;
+mod chunk_spawner;
+mod chunk;
 
 #[macro_use]
 extern crate exec_time;
@@ -21,7 +22,6 @@ use crate::chunk_mesh::generate_mesh;
 fn init(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
 ) {
     let start_transform = Transform::from_translation(Vec3::new(32.0, 64.0, 32.0));
@@ -62,11 +62,6 @@ fn init(
     ));
 }
 
-fn camera_debug_print(camera_query: Query<&FlyCamera>,) {
-    let camera = camera_query.single();
-    println!("Camera Pitch {} Yaw {}", camera.pitch, camera.yaw);
-}
-
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.8)))
@@ -77,8 +72,6 @@ fn main() {
         .add_startup_system(init)
         .add_plugin(FlyCameraPlugin)
         .add_system(systems::mouse_toggle::mouse_toggle)
-        .add_system(systems::chunk_spawner::chunk_spawner)
-        .add_system(systems::chunk_spawner::render_voxel_mesh)
-        .add_system(systems::chunk_spawner::despawn_chunk_processor)
+        .add_plugin(chunk_spawner::chunk_spawner_plugin::ChunkSpawnerPlugin)
         .run();
 }
